@@ -1576,6 +1576,19 @@ pyg__gvalue_get(PyObject *module, PyObject *pygvalue)
 }
 
 static PyObject *
+pyg__gvalue_unset(PyObject *module, PyObject *pygvalue)
+{
+    if (!pyg_boxed_check (pygvalue, G_TYPE_VALUE)) {
+        PyErr_SetString (PyExc_TypeError, "Expected GValue argument.");
+        return NULL;
+    }
+
+    g_value_unset (pyg_boxed_get (pygvalue, GValue));
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *
 pyg__gvalue_set(PyObject *module, PyObject *args)
 {
     PyObject *pygvalue;
@@ -1615,6 +1628,8 @@ static PyMethodDef _gobject_functions[] = {
       (PyCFunction)pyg__install_metaclass, METH_O },
     { "_gvalue_get",
       (PyCFunction)pyg__gvalue_get, METH_O },
+    { "_gvalue_unset",
+      (PyCFunction)pyg__gvalue_unset, METH_O },
     { "_gvalue_set",
       (PyCFunction)pyg__gvalue_set, METH_VARARGS },
 

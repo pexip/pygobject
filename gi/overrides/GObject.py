@@ -219,7 +219,7 @@ class Value(GObjectModule.Value):
 
     def __del__(self):
         if self._free_on_dealloc and self.g_type != TYPE_INVALID:
-            self.unset()
+            _gobject._gvalue_unset(self)
 
         # We must call base class __del__() after unset.
         super(Value, self).__del__()
