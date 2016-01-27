@@ -22,6 +22,7 @@
 # USA
 
 import sys
+import mutex
 import warnings
 from collections import namedtuple
 
@@ -211,6 +212,7 @@ __all__ += ['features', 'list_properties', 'new',
 
 class Value(GObjectModule.Value):
     def __init__(self, value_type=None, py_value=None):
+        self._del_mutex = mutex.mutex()
         GObjectModule.Value.__init__(self)
         if value_type is not None:
             self.init(value_type)
@@ -218,7 +220,7 @@ class Value(GObjectModule.Value):
                 self.set_value(py_value)
 
     def __del__(self):
-        if self._free_on_dealloc and self.g_type != TYPE_INVALID:
+        if self._del_mutex.testandset() and self._free_on_dealloc and self.g_type != TYPE_INVALID:
             self.unset()
 
     def set_boxed(self, boxed):
