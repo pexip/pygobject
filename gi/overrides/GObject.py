@@ -212,14 +212,16 @@ __all__ += ['features', 'list_properties', 'new',
 class Value(GObjectModule.Value):
     def __init__(self, value_type=None, py_value=None):
         GObjectModule.Value.__init__(self)
+        self._del_called = False
         if value_type is not None:
             self.init(value_type)
             if py_value is not None:
                 self.set_value(py_value)
 
     def __del__(self):
-        if self._free_on_dealloc and self.g_type != TYPE_INVALID:
+        if not self._del_called and self._free_on_dealloc and self.g_type != TYPE_INVALID:
             self.unset()
+        self._del_called = True
 
         # We must call base class __del__() after unset.
         super(Value, self).__del__()
