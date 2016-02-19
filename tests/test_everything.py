@@ -15,6 +15,8 @@ try:
     from gi.repository import Regress as Everything
 except ImportError:
     has_cairo = False
+    class Everything(object):
+        TestObj=None
 
 from gi.repository import GObject
 from gi.repository import GLib

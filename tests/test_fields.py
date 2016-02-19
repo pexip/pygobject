@@ -3,13 +3,23 @@
 
 import math
 import unittest
+import gi
 
 from gi.repository import GLib
-from gi.repository import Regress
+gi.require_version('GIMarshallingTests', '1.0')
 from gi.repository import GIMarshallingTests
 
 from compathelper import _unicode
 
+try:
+    import cairo
+    cairo  # PyFlakes
+    from gi.repository import Regress
+    has_cairo = True
+except ImportError:
+    has_cairo = False
+    class Regress(object):
+        TestObj=None
 
 class Number(object):
 

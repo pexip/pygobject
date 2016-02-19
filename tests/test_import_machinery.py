@@ -118,6 +118,7 @@ class TestImporter(unittest.TestCase):
         else:
             self.assertTrue('introspection typelib' in exception_string)
 
+    @unittest.skipUnless(Regress is not None, 'built without cairo support')
     def test__get_all_dependencies(self):
         get_all_dependencies = gi.importer._get_all_dependencies
         deps = set(get_all_dependencies("Regress"))

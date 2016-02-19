@@ -7,7 +7,6 @@ import unittest
 import gi
 
 try:
-    gi.require_foreign('cairo')
     import cairo
     from gi.repository import Regress
     has_cairo = True
