@@ -3,13 +3,21 @@
 
 import math
 import unittest
+import gi
 
 from gi.repository import GLib
-from gi.repository import Regress
+gi.require_version('GIMarshallingTests', '1.0')
 from gi.repository import GIMarshallingTests
 
 from compathelper import _unicode
 
+try:
+    import cairo
+    cairo  # PyFlakes
+    from gi.repository import Regress
+    has_cairo = True
+except ImportError:
+    has_cairo = False
 
 class Number(object):
 
@@ -22,7 +30,7 @@ class Number(object):
     def __float__(self):
         return float(self.value)
 
-
+@unittest.skipUnless(has_cairo, 'built without cairo support')
 class TestFields(unittest.TestCase):
 
     def test_int8(self):

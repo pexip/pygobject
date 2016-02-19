@@ -26,7 +26,7 @@ import collections
 import gi
 
 gi.require_version('GIRepository', '2.0')
-
+gi.require_version('GIMarshallingTests', '1.0')
 import gi._gi as GIRepository
 from gi.module import repository as repo
 from gi.repository import GObject
@@ -35,7 +35,7 @@ from gi.repository import GIRepository as IntrospectedRepository
 
 try:
     import cairo
-    cairo
+    from gi.repository import Regress
     has_cairo = True
 except ImportError:
     has_cairo = False
