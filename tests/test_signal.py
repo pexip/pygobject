@@ -18,7 +18,8 @@ try:
     has_cairo = True
 except ImportError:
     has_cairo = False
-
+    class Regress(object):
+        TestObj=None
 
 class C(GObject.GObject):
     __gsignals__ = {'my_signal': (GObject.SignalFlags.RUN_FIRST, None,
