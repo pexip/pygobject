@@ -18,8 +18,6 @@ try:
     has_cairo = True
 except ImportError:
     has_cairo = False
-    class Regress(object):
-        TestObj=None
 
 class Number(object):
 
@@ -32,7 +30,7 @@ class Number(object):
     def __float__(self):
         return float(self.value)
 
-
+@unittest.skipUnless(has_cairo, 'built without cairo support')
 class TestFields(unittest.TestCase):
 
     def test_int8(self):
