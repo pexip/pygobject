@@ -1719,6 +1719,7 @@ _wrap_g_constant_info_get_value (PyGIBaseInfo *self)
     GIArgument value = {0};
     PyObject *py_value;
     gboolean free_array = FALSE;
+    memset (&value, 0, sizeof(value));
 
     if (g_constant_info_get_value ( (GIConstantInfo *) self->info, &value) < 0) {
         PyErr_SetString (PyExc_RuntimeError, "unable to get value");
@@ -1733,7 +1734,7 @@ _wrap_g_constant_info_get_value (PyGIBaseInfo *self)
     }
 
     py_value = _pygi_argument_to_object (&value, type_info, GI_TRANSFER_NOTHING);
-    
+
     if (free_array) {
         g_array_free (value.v_pointer, FALSE);
     }
