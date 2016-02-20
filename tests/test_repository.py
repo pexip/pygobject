@@ -35,7 +35,7 @@ from gi.repository import GIRepository as IntrospectedRepository
 
 try:
     import cairo
-    cairo
+    from gi.repository import Regress
     has_cairo = True
 except ImportError:
     has_cairo = False
