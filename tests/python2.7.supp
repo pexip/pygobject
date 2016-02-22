@@ -84,6 +84,7 @@
    Memcheck:Leak
    fun:realloc
    fun:_PyObject_GC_Resize
+   fun:COMMENT_THIS_LINE_TO_DISABLE_LEAK_WARNING
 }
 
 {
@@ -91,6 +92,7 @@
    Memcheck:Leak
    fun:malloc
    fun:_PyObject_GC_New
+   fun:COMMENT_THIS_LINE_TO_DISABLE_LEAK_WARNING
 }
 
 {
@@ -98,6 +100,7 @@
    Memcheck:Leak
    fun:malloc
    fun:_PyObject_GC_NewVar
+   fun:COMMENT_THIS_LINE_TO_DISABLE_LEAK_WARNING
 }
 
 #
@@ -124,61 +127,37 @@
 {
    ADDRESS_IN_RANGE/Invalid read of size 4
    Memcheck:Addr4
-   fun:PyObject_Free*
+   fun:PyObject_Free
 }
 
 {
    ADDRESS_IN_RANGE/Invalid read of size 4
    Memcheck:Value4
-   fun:PyObject_Free*
-}
-
-{
-   ADDRESS_IN_RANGE/Invalid read of size 8
-   Memcheck:Addr8
-   fun:PyObject_Free*
-}
-
-{
-   ADDRESS_IN_RANGE/Invalid read of size 8
-   Memcheck:Value8
-   fun:PyObject_Free*
+   fun:PyObject_Free
 }
 
 {
    ADDRESS_IN_RANGE/Conditional jump or move depends on uninitialised value
    Memcheck:Cond
-   fun:PyObject_Free*
+   fun:PyObject_Free
 }
 
 {
    ADDRESS_IN_RANGE/Invalid read of size 4
    Memcheck:Addr4
-   fun:PyObject_Realloc*
+   fun:PyObject_Realloc
 }
 
 {
    ADDRESS_IN_RANGE/Invalid read of size 4
    Memcheck:Value4
-   fun:PyObject_Realloc*
-}
-
-{
-   ADDRESS_IN_RANGE/Invalid read of size 8
-   Memcheck:Addr8
-   fun:PyObject_Realloc*
-}
-
-{
-   ADDRESS_IN_RANGE/Invalid read of size 8
-   Memcheck:Value8
-   fun:PyObject_Realloc*
+   fun:PyObject_Realloc
 }
 
 {
    ADDRESS_IN_RANGE/Conditional jump or move depends on uninitialised value
    Memcheck:Cond
-   fun:PyObject_Realloc*
+   fun:PyObject_Realloc
 }
 
 {
