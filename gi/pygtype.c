@@ -622,10 +622,11 @@ pyg_type_lookup(GType type)
 
     /* recursively lookup types */
     while (ptype) {
-        pygi_type_import_by_g_type (ptype);
-	if ((tm = g_type_get_qdata(ptype, pyg_type_marshal_key)) != NULL)
-	    break;
-	ptype = g_type_parent(ptype);
+        if ((tm = g_type_get_qdata(ptype, pyg_type_marshal_key)) != NULL) {
+            pygi_type_import_by_g_type (ptype);
+            break;
+        }
+    	ptype = g_type_parent(ptype);
     }
     return tm;
 }
