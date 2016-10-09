@@ -613,6 +613,8 @@ pyg_flags_get_value(GType flag_type, PyObject *obj, guint *val)
 }
 
 static GQuark pyg_type_marshal_key = 0;
+static GQuark pyg_type_no_marshal_data_key = 0;
+static const char * const pyg_type_no_marshal_data = "";
 
 PyGTypeMarshal *
 pyg_type_lookup(GType type)
@@ -620,12 +622,23 @@ pyg_type_lookup(GType type)
     GType	ptype = type;
     PyGTypeMarshal	*tm = NULL;
 
-    /* recursively lookup types */
-    while (ptype) {
-        pygi_type_import_by_g_type (ptype);
-	if ((tm = g_type_get_qdata(ptype, pyg_type_marshal_key)) != NULL)
-	    break;
-	ptype = g_type_parent(ptype);
+    /* If we did marshal data lookup previously and nothing was found,
+       return NULL and don't waist time in the expensive loop below */
+    if (g_type_get_qdata(ptype, pyg_type_no_marshal_data_key) == NULL) {
+
+        /* Otherwise do recursive type lookup */
+        while (ptype) {
+            pygi_type_import_by_g_type (ptype);
+            if ((tm = g_type_get_qdata(ptype, pyg_type_marshal_key)) != NULL) {
+                break;
+            }
+            ptype = g_type_parent(ptype);
+        }
+
+        /* If nothing was found set 'no-marshal-data' qdata. Thus the next
+           time we enter this function we will return NULL ASAP */
+        if (tm == NULL)
+            g_type_set_qdata(type, pyg_type_no_marshal_data_key, pyg_type_no_marshal_data);
     }
     return tm;
 }
@@ -648,8 +661,10 @@ pyg_register_gtype_custom(GType gtype,
 {
     PyGTypeMarshal *tm;
 
-    if (!pyg_type_marshal_key)
+    if (!pyg_type_marshal_key) {
         pyg_type_marshal_key = g_quark_from_static_string("PyGType::marshal");
+        pyg_type_no_marshal_data_key = g_quark_from_static_string("PyGType::no-marshal-data");
+    }
 
     tm = g_new(PyGTypeMarshal, 1);
     tm->fromvalue = from_func;
