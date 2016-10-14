@@ -112,6 +112,32 @@ PyTypeObject symbol = {                                 \
 	return;                                         \
     PyDict_SetItemString(d, name, (PyObject *)&type);
 
+/* Much better alternative to PyImport_ImportModule which tries to import from
+   sys.modules first, if the module of interest in not there we call
+   PyImport_ImportModule.
+   The implementation is slightly modified version of PyImport_ImportModuleNoBlock
+   https://github.com/python/cpython/blob/2.7/Python/import.c#L2166-L2206 */
+static inline PyObject *
+PYGLIB_PyImport_ImportModule (const char *name)
+{
+    PyObject *result;
+    PyObject *modules;
+
+    /* Try to get the module from sys.modules[name] first */
+    modules = PyImport_GetModuleDict();
+    if (modules == NULL)
+        return NULL;
+
+    result = PyDict_GetItemString(modules, name);
+    if (result != NULL) {
+        Py_INCREF(result);
+        return result;
+    }
+
+    PyErr_Clear();
+    return PyImport_ImportModule (name);
+}
+
 #else
 
 #define PYGLIB_MODULE_START(symbol, modname)	        \
@@ -154,6 +180,8 @@ PyTypeObject symbol = {                                 \
 	    return;                                         \
     PyDict_SetItemString(d, name, (PyObject *)&type);
 
+#define PYGLIB_PyImport_ImportModule PyImport_ImportModule
+
 #define PYGLIB_PyBaseString_Check PyUnicode_Check
 
 #define PYGLIB_PyUnicode_Check PyUnicode_Check
@@ -192,6 +220,6 @@ PyTypeObject symbol = {                                 \
 
 #define PYGLIB_PyNumber_Long PyNumber_Long
 
-#endif
+#endif /* PY_VERSION_HEX < 0x03000000 */
 
 #endif /* __PYGLIB_PYTHON_COMPAT_H__ */
