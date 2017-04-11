@@ -76,7 +76,7 @@ class TestGtk(unittest.TestCase):
         labels = [x for x in box]
         self.assertEqual(labels, [label, label2])
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_actions(self):
         self.assertEqual(Gtk.Action, gi.overrides.Gtk.Action)
         action = Gtk.Action(name="test", label="Test", tooltip="Test Action", stock_id=Gtk.STOCK_COPY)
@@ -93,7 +93,7 @@ class TestGtk(unittest.TestCase):
         self.assertEqual(action.get_stock_id(), Gtk.STOCK_COPY)
         self.assertEqual(action.get_current_value(), 1)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_actiongroup(self):
         self.assertEqual(Gtk.ActionGroup, gi.overrides.Gtk.ActionGroup)
 
@@ -135,7 +135,7 @@ class TestGtk(unittest.TestCase):
             expected_results.remove(a)
             action.activate()
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_uimanager(self):
         self.assertEqual(Gtk.UIManager, gi.overrides.Gtk.UIManager)
         ui = Gtk.UIManager()
@@ -155,7 +155,7 @@ class TestGtk(unittest.TestCase):
         self.assertEqual(ag, groups[-2])
         self.assertEqual(ag2, groups[-1])
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_uimanager_nonascii(self):
         ui = Gtk.UIManager()
         ui.add_ui_from_string(b'<ui><menubar name="menub\xc3\xa6r1" /></ui>'.decode('UTF-8'))
@@ -306,7 +306,7 @@ class TestGtk(unittest.TestCase):
         self.assertEqual(dialog.get_property('secondary-text'), '2nd markup')
         self.assertTrue(dialog.get_property('secondary-use-markup'))
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_color_selection_dialog(self):
         dialog = Gtk.ColorSelectionDialog(title="color selection dialog test")
         self.assertTrue(isinstance(dialog, Gtk.Dialog))
@@ -334,7 +334,7 @@ class TestGtk(unittest.TestCase):
         action = dialog.get_property('action')
         self.assertEqual(Gtk.FileChooserAction.OPEN, action)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_font_selection_dialog(self):
         dialog = Gtk.FontSelectionDialog(title="font selection dialog test")
         self.assertTrue(isinstance(dialog, Gtk.Dialog))
@@ -463,7 +463,7 @@ class TestGtk(unittest.TestCase):
         adjustment = Gtk.Adjustment()
         self.adjustment_check(adjustment)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_table(self):
         table = Gtk.Table()
         self.assertTrue(isinstance(table, Gtk.Table))
@@ -570,7 +570,7 @@ class TestGtk(unittest.TestCase):
         treeview.enable_model_drag_dest(mixed_target_list,
                                         Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_scrollbar(self):
         adjustment = Gtk.Adjustment()
 
@@ -593,7 +593,7 @@ class TestGtk(unittest.TestCase):
         iconview = Gtk.IconView(model=model)
         self.assertEqual(iconview.props.model, model)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_toolbutton(self):
         # PyGTK compat
 
@@ -616,7 +616,7 @@ class TestGtk(unittest.TestCase):
         self.assertEqual(button.props.label, 'mylabel')
         self.assertEqual(button.props.icon_widget, icon)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_iconset(self):
         Gtk.IconSet()
         pixbuf = GdkPixbuf.Pixbuf()
@@ -632,7 +632,7 @@ class TestGtk(unittest.TestCase):
         self.assertEqual(viewport.props.vadjustment, vadjustment)
         self.assertEqual(viewport.props.hadjustment, hadjustment)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_stock_lookup(self):
         stock_item = Gtk.stock_lookup('gtk-ok')
         self.assertEqual(type(stock_item), Gtk.StockItem)
@@ -648,7 +648,7 @@ class TestGtk(unittest.TestCase):
         GLib.idle_add(Gtk.main_quit, 'hello')
         Gtk.main()
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_widget_render_icon(self):
         button = Gtk.Button(label='OK')
         pixbuf = button.render_icon(Gtk.STOCK_OK, Gtk.IconSize.BUTTON)
@@ -656,7 +656,7 @@ class TestGtk(unittest.TestCase):
 
 
 @unittest.skipUnless(Gtk, 'Gtk not available')
-@unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+@unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
 class TestWidget(unittest.TestCase):
     def test_style_get_property_gvalue(self):
         button = Gtk.Button()
@@ -1983,7 +1983,7 @@ class TestTextBuffer(unittest.TestCase):
 @unittest.skipUnless(Gtk, 'Gtk not available')
 class TestContainer(unittest.TestCase):
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_child_set_property(self):
         box = Gtk.Box()
         child = Gtk.Button()
@@ -1995,7 +1995,7 @@ class TestContainer(unittest.TestCase):
         box.child_get_property(child, 'padding', value)
         self.assertEqual(value.get_int(), 42)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_child_get_property_gvalue(self):
         box = Gtk.Box()
         child = Gtk.Button()
@@ -2005,7 +2005,7 @@ class TestContainer(unittest.TestCase):
         box.child_get_property(child, 'padding', value)
         self.assertEqual(value.get_int(), 42)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_child_get_property_return_with_explicit_gvalue(self):
         box = Gtk.Box()
         child = Gtk.Button()
@@ -2015,7 +2015,7 @@ class TestContainer(unittest.TestCase):
         result = box.child_get_property(child, 'padding', value)
         self.assertEqual(result, 42)
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_child_get_property_return_with_implicit_gvalue(self):
         box = Gtk.Box()
         child = Gtk.Button()
@@ -2034,7 +2034,7 @@ class TestContainer(unittest.TestCase):
         with self.assertRaises(ValueError):
             box.child_get_property(child, 'not-a-valid-child-property')
 
-    @unittest.skipIf(Gtk._version == "4.0", "not in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version == "4.0", "not in gtk4")
     def test_child_get_and_set(self):
         box = Gtk.Box()
         child = Gtk.Button()
@@ -2051,7 +2051,7 @@ class TestContainer(unittest.TestCase):
         self.assertEqual(fill, False)
         self.assertEqual(padding, 21)
 
-    @unittest.skipIf(Gtk._version != "4.0", "only in gtk4")
+    @unittest.skipIf(Gtk and Gtk._version != "4.0", "only in gtk4")
     def test_child_get_and_set_gtk4(self):
         # padding got removed in gtk4
         box = Gtk.Box()
