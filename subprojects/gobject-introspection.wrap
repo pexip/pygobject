@@ -1,0 +1,5 @@
+[wrap-git]
+directory=gobject-introspection
+url=https://gitlab.gnome.org/mathieudu/gobject-introspection.git
+push-url=git@gitlab.gnome.org:mathieudu/gobject-introspection.git
+revision=origin/wip/meson
