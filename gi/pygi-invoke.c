@@ -660,6 +660,15 @@ _invoke_marshal_out_args (PyGIInvokeState *state, PyGIFunctionCache *function_ca
     return py_out;
 }
 
+static gsize pygi_invoke_c_callable_counter = 0;
+
+gsize
+pygi_get_invoke_c_callable_counter ()
+{
+    return pygi_invoke_c_callable_counter;
+}
+
+
 PyObject *
 pygi_invoke_c_callable (PyGIFunctionCache *function_cache,
                         PyGIInvokeState *state,
@@ -677,6 +686,7 @@ pygi_invoke_c_callable (PyGIFunctionCache *function_cache,
     if (!_invoke_marshal_in_args (state, function_cache))
          goto err;
 
+    ++pygi_invoke_c_callable_counter;
     Py_BEGIN_ALLOW_THREADS;
 
         ffi_call (&function_cache->invoker.cif,
