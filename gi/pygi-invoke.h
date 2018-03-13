@@ -42,6 +42,8 @@ gboolean _pygi_invoke_arg_state_init (PyGIInvokeState *state);
 
 void _pygi_invoke_arg_state_free     (PyGIInvokeState *state);
 
+gsize pygi_get_invoke_c_callable_counter ();
+
 G_END_DECLS
 
 #endif /* __PYGI_INVOKE_H__ */

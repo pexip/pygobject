@@ -42,6 +42,8 @@
 #include "pygi-error.h"
 #include "pygi-property.h"
 
+#include "pygi-invoke.h"
+
 static GHashTable *log_handlers = NULL;
 static gboolean log_handlers_disabled = FALSE;
 
@@ -1896,7 +1898,8 @@ struct _PyGObject_Functions pygobject_api_functions = {
   pygobject_new_full,
   &PyGObject_Type,
 
-  pyg_value_from_pyobject_with_error
+  pyg_value_from_pyobject_with_error,
+  pygi_get_invoke_c_callable_counter
 };
 
 /* for addon libraries ... */
