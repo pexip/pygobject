@@ -6,7 +6,7 @@ import unittest
 
 from gi.repository import GLib, GObject
 
-from . import testhelper
+import testhelper
 from . import testmodule
 
 

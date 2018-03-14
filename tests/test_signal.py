@@ -13,7 +13,7 @@ from gi.repository import GObject, GLib, Regress, Gio
 from gi import _signalhelper as signalhelper
 from gi.module import repository as repo
 
-from . import testhelper
+import testhelper
 from .compathelper import _long
 from .helper import capture_glib_warnings, capture_gi_deprecation_warnings
 
