@@ -1,5 +1,5 @@
 python_sources = ['__init__.py']
 
-install_data(python_sources,
-  install_dir : join_paths(python.sysconfig_path('purelib'), 'gi', 'repository')
+python.install_sources(python_sources,
+  subdir : join_paths('gi', 'repository')
 )

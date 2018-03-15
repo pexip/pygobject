@@ -3,6 +3,6 @@ python_sources = [
   'generictreemodel.py',
   'pygtkcompat.py']
 
-install_data(python_sources,
-  install_dir : join_paths(python.sysconfig_path('purelib'), 'pygtkcompat')
+python.install_sources(python_sources,
+  subdir : 'pygtkcompat'
 )

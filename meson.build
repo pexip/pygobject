@@ -57,7 +57,7 @@ configure_file(input : 'pygobject-@0@.pc.in'.format(platform_version),
 configure_file(input : 'PKG-INFO.in',
   output : 'pygobject-@0@-py@1@.egg-info'.format(pygobject_version, python.language_version()),
   configuration : pkgconf,
-  install_dir : join_paths(python.sysconfig_path('purelib'), 'gi'))
+  install_dir : python.get_install_dir(subdir : 'gi'))
 
 subdir('gi')
 subdir('pygtkcompat')

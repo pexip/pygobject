@@ -60,15 +60,16 @@ python_sources = [
   '_signalhelper.py',
   'types.py']
 
-install_data(python_sources,
-  install_dir : join_paths(python.sysconfig_path('platlib'), 'gi')
+python.install_sources(python_sources,
+  pure : false,
+  subdir : 'gi'
 )
 
 giext = python.extension_module('_gi', sources,
   dependencies : [python_dep, glib_dep, gi_dep, ffi_dep],
   include_directories: include_directories('..'),
   install: true,
-  install_dir: join_paths(python.sysconfig_path('platlib'), 'gi'),
+  subdir : 'gi',
   c_args: ['-DHAVE_CONFIG_H'] + python_no_warn_flags
 )
 
