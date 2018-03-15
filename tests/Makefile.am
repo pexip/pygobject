@@ -32,7 +32,7 @@ dist_libgimarshallingtests_la_SOURCES = \
 	$(srcdir)/gimarshallingtestsextra.h
 
 # We don't control the source so don't pass WARN_CFLAGS etc
-libgimarshallingtests_la_CFLAGS = $(GLIB_CFLAGS)
+libgimarshallingtests_la_CFLAGS = $(GLIB_CFLAGS) -I$(GI_DATADIR)/tests
 libgimarshallingtests_la_LDFLAGS = $(common_ldflags)
 libgimarshallingtests_la_LIBADD = $(GLIB_LIBS)
 
@@ -42,6 +42,9 @@ GIMarshallingTests-1.0.gir: libgimarshallingtests.la Makefile
 	--warn-all --warn-error \
 	--library=libgimarshallingtests.la \
 	--libtool="$(top_builddir)/libtool" \
+	--cflags-begin \
+	-I$(GI_DATADIR)/tests \
+	--cflags-end \
 	--output $@ \
 	$(nodist_libgimarshallingtests_la_SOURCES) \
 	$(dist_libgimarshallingtests_la_SOURCES)
