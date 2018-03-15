@@ -21,12 +21,12 @@ if get_option('default_library') != 'static'
 endif
 
 if gi_dep.type_name() == 'pkgconfig'
+  gi_datadir = gi_dep.get_pkgconfig_variable('gidatadir')
   regress_sources = [join_paths(gi_datadir, 'tests', 'regress.c')]
   regress_headers = [join_paths(gi_datadir, 'tests', 'regress.h')]
   regress_incdir = include_directories(join_paths(gi_datadir, 'tests'))
   marshalling_sources = [join_paths(gi_datadir, 'tests', 'gimarshallingtests.c')]
   marshalling_headers = [join_paths(gi_datadir, 'tests', 'gimarshallingtests.h')]
-  gi_datadir = gi_dep.get_pkgconfig_variable('gidatadir')
 else
   gi_subproject = subproject('gobject-introspection')
   regress_sources = gi_subproject.get_variable('test_regress_sources')
