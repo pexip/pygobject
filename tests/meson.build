@@ -103,8 +103,13 @@ schemas = gnome.compile_schemas(build_by_default: true)
 
 envdata = environment()
 envdata.append('GI_TYPELIB_PATH', meson.current_build_dir(), separator : ':')
-envdata.append('LD_LIBRARY_PATH', meson.current_build_dir(), separator : ':')
-envdata.append('PYTHONPATH', join_paths(meson.current_build_dir(), '..'), separator : ':')
+if host_machine.system() == 'linux'
+    envdata.prepend('LD_LIBRARY_PATH', meson.current_build_dir())
+endif
+if host_machine.system() == 'windows'
+    envdata.prepend('PATH', join_paths(get_option('prefix'), get_option('bindir')))
+endif
+envdata.append('PYTHONPATH', join_paths(meson.current_build_dir(), '..'))
 envdata.append('TESTS_BUILDDIR', meson.current_build_dir())
 
 message(join_paths(meson.current_build_dir(), '..'))
