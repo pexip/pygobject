@@ -26,7 +26,7 @@ ffi_dep = dependency('libffi', version : '>= 3.0', required : true,
   fallback : ['libffi', 'ffi_dep'])
 
 pymod = import('python')
-python = pymod.find(get_option('python'))
+python = pymod.find_installation(get_option('python'))
 python_dep = python.dependency(required : true)
 python_no_warn_flags = []
 
