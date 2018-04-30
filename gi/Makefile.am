@@ -50,15 +50,12 @@ _gi_la_SOURCES = \
 	pygparamspec.h \
 	pygpointer.c \
 	pygpointer.h \
-	pygtype.c \
-	pygtype.h \
 	pygoptioncontext.c \
 	pygoptioncontext.h \
 	pygoptiongroup.c \
 	pygoptiongroup.h \
 	pygspawn.c \
 	pygspawn.h \
-	pygi-python-compat.c \
 	pygi-python-compat.h \
 	gimodule.c \
 	gimodule.h \
