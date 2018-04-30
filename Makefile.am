@@ -61,6 +61,7 @@ nobase_pyexec_PYTHON = \
 	gi/pygtkcompat.py \
 	gi/docstring.py \
 	gi/_constants.py \
+	gi/_compat.py \
 	gi/_propertyhelper.py \
 	gi/_signalhelper.py \
 	gi/_option.py \
