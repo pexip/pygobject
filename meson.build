@@ -36,7 +36,7 @@ gmodule_dep = dependency('gmodule-2.0', version : glib_version_req,
 ffi_dep = dependency('libffi', version : '>= 3.0', required : true,
   fallback : ['libffi', 'ffi_dep'])
 
-cairo_dep = dependency('cairo', required: false)
+cairo_dep = dependency('cairo-disable', required: false)
 cairo_gobject_dep = dependency('cairo-gobject', required: false)
 
 if python.language_version().version_compare('>= 3.0')
