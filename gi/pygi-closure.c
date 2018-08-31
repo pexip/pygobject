@@ -892,7 +892,8 @@ pygi_arg_callback_setup_from_info (PyGICallbackCache  *arg_cache,
     if (arg_cache->destroy_notify_index != -1)
         arg_cache->destroy_notify_index += child_offset;
 
-    if (arg_cache->user_data_index >= 0) {
+    if (arg_cache->user_data_index >= 0 &&
+        !_pygi_callable_cache_is_arg_set (callable_cache, (guint)arg_cache->user_data_index)) {
         PyGIArgCache *user_data_arg_cache = pygi_arg_cache_alloc ();
         user_data_arg_cache->meta_type = PYGI_META_ARG_TYPE_CHILD_WITH_PYARG;
         user_data_arg_cache->direction = direction;

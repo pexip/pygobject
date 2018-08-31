@@ -737,8 +737,7 @@ _callable_cache_init (PyGICallableCache *cache,
     n_args = (gint)cache->args_offset + g_callable_info_get_n_args (callable_info);
 
     if (n_args >= 0) {
-        cache->args_cache = g_ptr_array_new_full (n_args, (GDestroyNotify) pygi_arg_cache_free);
-        g_ptr_array_set_size (cache->args_cache, n_args);
+        cache->args_cache = _pygi_callable_cache_allocate_args_cache (n_args);
     }
 
     if (!cache->generate_args_cache (cache, callable_info)) {
