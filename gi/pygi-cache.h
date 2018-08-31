@@ -331,6 +331,19 @@ _pygi_callable_cache_set_arg (PyGICallableCache *cache, guint index, PyGIArgCach
     cache->args_cache->pdata[index] = arg_cache;
 }
 
+inline static gboolean
+_pygi_callable_cache_is_arg_set (PyGICallableCache *cache, guint index) {
+    return cache->args_cache->pdata[index] != NULL;
+}
+
+inline static GPtrArray *
+_pygi_callable_cache_allocate_args_cache (guint n_args) {
+    GPtrArray * args_cache = g_ptr_array_new_full (n_args, (GDestroyNotify) pygi_arg_cache_free);
+    g_ptr_array_set_size (args_cache, n_args);
+    memset (args_cache->pdata, 0, n_args * sizeof (*args_cache->pdata));
+    return args_cache;
+}
+
 G_END_DECLS
 
 #endif /* __PYGI_CACHE_H__ */
