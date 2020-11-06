@@ -16,6 +16,10 @@ PyObject * pygi_pyerr_format (PyObject *exception, const char *format, ...);
 
 gboolean pygi_guint_from_pyssize (Py_ssize_t pyval, guint *result);
 
+#if PY_VERSION_HEX < 0x030900A4
+#  define Py_SET_TYPE(obj, type) ((Py_TYPE(obj) = (type)), (void)0)
+#endif
+
 #if PY_VERSION_HEX >= 0x03000000
 
 #define _PyGI_ERROR_PREFIX(format, ...) G_STMT_START { \
