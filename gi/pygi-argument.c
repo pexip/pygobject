@@ -995,7 +995,7 @@ _pygi_argument_to_object (GIArgument  *arg,
         }
         default:
         {
-            object = pygi_marshal_to_py_basic_type (arg, type_tag, transfer);
+            object = pygi_marshal_to_py_basic_type (arg, type_tag, transfer, g_type_info_is_pointer (type_info));
         }
     }
 

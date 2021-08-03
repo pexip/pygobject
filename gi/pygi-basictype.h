@@ -39,7 +39,8 @@ gboolean pygi_marshal_from_py_basic_type_cache_adapter  (PyGIInvokeState   *stat
 
 PyObject *pygi_marshal_to_py_basic_type                (GIArgument    *arg,        /* in */
                                                         GITypeTag      type_tag,
-                                                        GITransfer     transfer);
+                                                        GITransfer     transfer,
+                                                        gboolean is_pointer);
 PyObject *pygi_marshal_to_py_basic_type_cache_adapter  (PyGIInvokeState   *state,
                                                         PyGICallableCache *callable_cache,
                                                         PyGIArgCache      *arg_cache,
