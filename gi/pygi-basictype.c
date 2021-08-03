@@ -1218,6 +1218,20 @@ pygi_filename_to_py (gchar *value)
     return py_obj;
 }
 
+#define HANDLE_PTR_OR_BASIC(type, basic_val) \
+{ type val; \
+if (is_pointer) { \
+  if (arg->v_pointer) { \
+    val = *(type*) arg->v_pointer; \
+  } else { \
+    Py_RETURN_NONE; \
+  } \
+} else { \
+  val = basic_val; \
+} \
+return pygi_##type##_to_py (val); \
+}
+
 /**
  * pygi_marshal_to_py_basic_type:
  * @arg: The argument to convert to an object.
@@ -1235,47 +1249,48 @@ pygi_filename_to_py (gchar *value)
 PyObject *
 pygi_marshal_to_py_basic_type (GIArgument  *arg,
                                GITypeTag type_tag,
-                               GITransfer transfer)
+                               GITransfer transfer,
+                               gboolean is_pointer)
 {
     switch (type_tag) {
         case GI_TYPE_TAG_BOOLEAN:
-            return pygi_gboolean_to_py (arg->v_boolean);
+            HANDLE_PTR_OR_BASIC (gboolean, arg->v_boolean);
 
         case GI_TYPE_TAG_INT8:
-            return pygi_gint8_to_py (arg->v_int8);
+            HANDLE_PTR_OR_BASIC (gint8, arg->v_int8);
 
         case GI_TYPE_TAG_UINT8:
-            return pygi_guint8_to_py (arg->v_uint8);
+            HANDLE_PTR_OR_BASIC (guint8, arg->v_uint8);
 
         case GI_TYPE_TAG_INT16:
-            return pygi_gint16_to_py (arg->v_int16);
+            HANDLE_PTR_OR_BASIC (gint16, arg->v_int16);
 
         case GI_TYPE_TAG_UINT16:
-            return pygi_guint16_to_py (arg->v_uint16);
+            HANDLE_PTR_OR_BASIC (guint16, arg->v_uint16);
 
         case GI_TYPE_TAG_INT32:
-            return pygi_gint32_to_py (arg->v_int32);
+            HANDLE_PTR_OR_BASIC (gint32, arg->v_int32);
 
         case GI_TYPE_TAG_UINT32:
-            return pygi_guint32_to_py (arg->v_uint32);
+            HANDLE_PTR_OR_BASIC (guint32, arg->v_uint32);
 
         case GI_TYPE_TAG_INT64:
-            return pygi_gint64_to_py (arg->v_int64);
+            HANDLE_PTR_OR_BASIC (gint64, arg->v_int64);
 
         case GI_TYPE_TAG_UINT64:
-            return pygi_guint64_to_py (arg->v_uint64);
+            HANDLE_PTR_OR_BASIC (guint64, arg->v_uint64);
 
         case GI_TYPE_TAG_FLOAT:
-            return pygi_gfloat_to_py (arg->v_float);
+            HANDLE_PTR_OR_BASIC (gfloat, arg->v_float);
 
         case GI_TYPE_TAG_DOUBLE:
-            return pygi_gdouble_to_py (arg->v_double);
+            HANDLE_PTR_OR_BASIC (gdouble, arg->v_double);
 
         case GI_TYPE_TAG_GTYPE:
             return pyg_type_wrapper_new ( (GType) arg->v_size);
 
         case GI_TYPE_TAG_UNICHAR:
-            return pygi_gunichar_to_py (arg->v_uint32);
+            HANDLE_PTR_OR_BASIC (gunichar, arg->v_uint32);
 
         case GI_TYPE_TAG_UTF8:
             return pygi_utf8_to_py (arg->v_string);
@@ -1299,7 +1314,8 @@ pygi_marshal_to_py_basic_type_cache_adapter (PyGIInvokeState   *state,
 {
     return pygi_marshal_to_py_basic_type (arg,
                                           arg_cache->type_tag,
-                                          arg_cache->transfer);
+                                          arg_cache->transfer,
+                                          arg_cache->is_pointer);
 }
 
 static void
