@@ -870,15 +870,17 @@ static void
 pygobject_inherit_slots(PyTypeObject *type, PyObject *bases, gboolean check_for_present)
 {
     static int slot_offsets[] = { offsetof(PyTypeObject, tp_richcompare),
-#if PY_VERSION_HEX < 0x03000000
+#if PY_MAJOR_VERSION < 3
                                   offsetof(PyTypeObject, tp_compare),
+#endif
+#if PY_MAJOR_VERSION < 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 9)
+                                  offsetof(PyTypeObject, tp_print),
 #endif
                                   offsetof(PyTypeObject, tp_richcompare),
                                   offsetof(PyTypeObject, tp_hash),
                                   offsetof(PyTypeObject, tp_iter),
                                   offsetof(PyTypeObject, tp_repr),
-                                  offsetof(PyTypeObject, tp_str),
-                                  offsetof(PyTypeObject, tp_print) };
+                                  offsetof(PyTypeObject, tp_str), };
     gsize i;
 
     /* Happens when registering gobject.GObject itself, at least. */
