@@ -150,7 +150,7 @@ PyTypeObject symbol = {                                 \
 #define PYGLIB_PyUnicode_Check PyUnicode_Check
 #define PYGLIB_PyUnicode_AsString _PyUnicode_AsString
 #define PYGLIB_PyUnicode_AsStringAndSize(obj, buf, size) \
-    (((*(buf) = _PyUnicode_AsStringAndSize(obj, size)) != NULL) ? 0 : -1) 
+    (((*(buf) = PyUnicode_AsUTF8AndSize(obj, size)) != NULL) ? 0 : -1)
 #define PYGLIB_PyUnicode_FromString PyUnicode_FromString
 #define PYGLIB_PyUnicode_FromStringAndSize PyUnicode_FromStringAndSize
 #define PYGLIB_PyUnicode_FromFormat PyUnicode_FromFormat
