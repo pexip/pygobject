@@ -1,0 +1,3 @@
+[submodule "subprojects/pythoncapi-compat"]
+	path = subprojects/pythoncapi-compat
+	url = git@github.com:pexip/pythoncapi-compat.git

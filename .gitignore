@@ -25,7 +25,7 @@
 /pygobject.egg-info/
 /docs/_build
 /PyGObject.egg-info/
-/subprojects/*/
+#/subprojects/*/
 subprojects/.wraplock
 !/subprojects/packagefiles/
 *.pyd
