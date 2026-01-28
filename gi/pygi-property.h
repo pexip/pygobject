@@ -34,6 +34,8 @@ PyObject *pygi_call_do_get_property (PyObject *instance, GParamSpec *pspec);
 
 int pygi_set_property_value (PyGObject *instance, GParamSpec *pspec,
                              PyObject *py_value);
+int pygi_set_property_value_async (PyGObject *instance, GParamSpec *pspec,
+                             PyObject *py_value);
 
 gint pygi_set_gvalue_for_pspec (GParamSpec *pspec, GValue *value,
                                 PyObject *py_value);
