@@ -405,8 +405,7 @@ out:
 }
 
 gint
-pygi_set_property_value (PyGObject *instance, GParamSpec *pspec,
-                         PyObject *py_value)
+pygi_set_property_value (PyGObject *instance, GParamSpec *pspec, PyObject *py_value)
 {
     GValue value = {
         0,
@@ -446,6 +445,57 @@ pygi_set_property_value (PyGObject *instance, GParamSpec *pspec,
     }
 
     g_object_set_property (instance->obj, pspec->name, &value);
+    ret_value = 0;
+
+out:
+    g_value_unset (&value);
+
+    return ret_value;
+}
+
+gint
+pygi_set_property_value_async (PyGObject *instance, GParamSpec *pspec, PyObject *py_value)
+{
+    GValue value = {
+        0,
+    };
+    gint ret_value = -1;
+
+    g_value_init (&value, G_PARAM_SPEC_VALUE_TYPE (pspec));
+
+    if (pspec->flags & G_PARAM_CONSTRUCT_ONLY) {
+        PyErr_Format (PyExc_TypeError,
+                      "property '%s' can only be set in constructor",
+                      pspec->name);
+        goto out;
+    }
+
+    if (!(pspec->flags & G_PARAM_WRITABLE)) {
+        PyErr_Format (PyExc_TypeError, "property '%s' is not writable",
+                      pspec->name);
+        goto out;
+    }
+
+    if (pygi_set_gvalue_for_pspec (pspec, &value, py_value) < 0) {
+        /* If we already have an error set, don't override it,
+         * otherwise raise a TypError indcating that we couldn't
+         * set the property */
+        if (!PyErr_Occurred ()) {
+            PyObject *pvalue_str = PyObject_Repr (py_value);
+            PyErr_Format (PyExc_TypeError,
+                          "could not convert %s to type '%s' when setting "
+                          "property '%s.%s'",
+                          PyUnicode_AsUTF8 (pvalue_str),
+                          g_type_name (G_PARAM_SPEC_VALUE_TYPE (pspec)),
+                          G_OBJECT_TYPE_NAME (instance->obj), pspec->name);
+            Py_DECREF (pvalue_str);
+        }
+        goto out;
+    }
+
+    Py_BEGIN_ALLOW_THREADS
+    g_object_set_property (instance->obj, pspec->name, &value);
+    Py_END_ALLOW_THREADS
     ret_value = 0;
 
 out:
