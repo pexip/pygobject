@@ -35,3 +35,5 @@ pdm.lock
 .pdm-python
 public/
 
+# Meson wraplock
+.wraplock
