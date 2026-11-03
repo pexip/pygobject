@@ -1121,9 +1121,9 @@ pygobject_set_property_full (PyGObject *self, PyObject *args, gboolean async)
     }
 
     if (async)
-      pygi_set_property_value_async (self, pspec, pvalue);
+        pygi_set_property_value_async (self, pspec, pvalue);
     else
-      pygi_set_property_value (self, pspec, pvalue);
+        pygi_set_property_value (self, pspec, pvalue);
     if (PyErr_Occurred ()) return NULL;
 
     Py_RETURN_NONE;
@@ -1132,13 +1132,13 @@ pygobject_set_property_full (PyGObject *self, PyObject *args, gboolean async)
 static PyObject *
 pygobject_set_property (PyGObject *self, PyObject *args)
 {
-  return pygobject_set_property_full (self, args, FALSE);
+    return pygobject_set_property_full (self, args, FALSE);
 }
 
 static PyObject *
 pygobject_set_property_async (PyGObject *self, PyObject *args)
 {
-  return pygobject_set_property_full (self, args, TRUE);
+    return pygobject_set_property_full (self, args, TRUE);
 }
 
 static PyObject *
@@ -1877,7 +1877,8 @@ static PyMethodDef pygobject_methods[] = {
     { "get_property", (PyCFunction)pygobject_get_property, METH_VARARGS },
     { "get_properties", (PyCFunction)pygobject_get_properties, METH_VARARGS },
     { "set_property", (PyCFunction)pygobject_set_property, METH_VARARGS },
-    { "set_property_async", (PyCFunction)pygobject_set_property_async, METH_VARARGS },
+    { "set_property_async", (PyCFunction)pygobject_set_property_async,
+      METH_VARARGS },
     { "set_properties", (PyCFunction)pygobject_set_properties,
       METH_VARARGS | METH_KEYWORDS },
     { "bind_property", (PyCFunction)pygobject_bind_property,

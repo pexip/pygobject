@@ -381,8 +381,22 @@ pygi_set_gvalue_for_pspec (GValue *value, GParamSpec *pspec,
     return ret_value;
 }
 
-gint
-pygi_set_property_value (PyGObject *instance, GParamSpec *pspec, PyObject *py_value)
+static void
+set_object_property (PyGObject *instance, GParamSpec *pspec,
+                     const GValue *value, gboolean release_gil)
+{
+    if (release_gil) {
+        Py_BEGIN_ALLOW_THREADS;
+        g_object_set_property (instance->obj, pspec->name, value);
+        Py_END_ALLOW_THREADS;
+    } else {
+        g_object_set_property (instance->obj, pspec->name, value);
+    }
+}
+
+static gint
+set_property_value_full (PyGObject *instance, GParamSpec *pspec,
+                         PyObject *py_value, gboolean release_gil)
 {
     GValue value = { 0 };
     PyGIArgumentFromPyCleanupData arg_cleanup = { 0 };
@@ -411,7 +425,7 @@ pygi_set_property_value (PyGObject *instance, GParamSpec *pspec, PyObject *py_va
             return -1;
         }
         g_value_set_uint (&value, u);
-        g_object_set_property (instance->obj, pspec->name, &value);
+        set_object_property (instance, pspec, &value, release_gil);
         g_value_unset (&value);
         return 0;
     }
@@ -420,7 +434,7 @@ pygi_set_property_value (PyGObject *instance, GParamSpec *pspec, PyObject *py_va
         pygi_set_gvalue_for_pspec (&value, pspec, py_value, &arg_cleanup);
 
     if (ret_value == 0) {
-        g_object_set_property (instance->obj, pspec->name, &value);
+        set_object_property (instance, pspec, &value, release_gil);
         g_value_unset (&value);
     } else {
         /* If we already have an error set, don't override it,
@@ -444,52 +458,18 @@ pygi_set_property_value (PyGObject *instance, GParamSpec *pspec, PyObject *py_va
 }
 
 gint
-pygi_set_property_value_async (PyGObject *instance, GParamSpec *pspec, PyObject *py_value)
+pygi_set_property_value (PyGObject *instance, GParamSpec *pspec,
+                         PyObject *py_value)
 {
-    GValue value = {
-        0,
-    };
-    gint ret_value = -1;
+    return set_property_value_full (instance, pspec, py_value, FALSE);
+}
 
-    g_value_init (&value, G_PARAM_SPEC_VALUE_TYPE (pspec));
-
-    if (pspec->flags & G_PARAM_CONSTRUCT_ONLY) {
-        PyErr_Format (PyExc_TypeError,
-                      "property '%s' can only be set in constructor",
-                      pspec->name);
-        goto out;
-    }
-
-    if (!(pspec->flags & G_PARAM_WRITABLE)) {
-        PyErr_Format (PyExc_TypeError, "property '%s' is not writable",
-                      pspec->name);
-        goto out;
-    }
-
-    if (pygi_set_gvalue_for_pspec (pspec, &value, py_value) < 0) {
-        /* If we already have an error set, don't override it,
-         * otherwise raise a TypError indcating that we couldn't
-         * set the property */
-        if (!PyErr_Occurred ()) {
-            PyObject *pvalue_str = PyObject_Repr (py_value);
-            PyErr_Format (PyExc_TypeError,
-                          "could not convert %s to type '%s' when setting "
-                          "property '%s.%s'",
-                          PyUnicode_AsUTF8 (pvalue_str),
-                          g_type_name (G_PARAM_SPEC_VALUE_TYPE (pspec)),
-                          G_OBJECT_TYPE_NAME (instance->obj), pspec->name);
-            Py_DECREF (pvalue_str);
-        }
-        goto out;
-    }
-
-    Py_BEGIN_ALLOW_THREADS
-    g_object_set_property (instance->obj, pspec->name, &value);
-    Py_END_ALLOW_THREADS
-    ret_value = 0;
-
-out:
-    g_value_unset (&value);
-
-    return ret_value;
+/* Like pygi_set_property_value(), but releases the GIL while the property is
+ * set, so a property setter that blocks on another Python thread can't
+ * deadlock. */
+gint
+pygi_set_property_value_async (PyGObject *instance, GParamSpec *pspec,
+                               PyObject *py_value)
+{
+    return set_property_value_full (instance, pspec, py_value, TRUE);
 }
