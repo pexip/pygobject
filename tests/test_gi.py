@@ -906,28 +906,22 @@ class TestFilename(unittest.TestCase):
 
 
 class TestArray(unittest.TestCase):
-    @unittest.skipUnless(hasattr(GIMarshallingTests, "array_bool_in"), "too old gi")
     def test_array_bool_in(self):
         GIMarshallingTests.array_bool_in([True, False, True, True])
 
-    @unittest.skipUnless(hasattr(GIMarshallingTests, "array_bool_out"), "too old gi")
     def test_array_bool_out(self):
         assert GIMarshallingTests.array_bool_out() == [True, False, True, True]
 
-    @unittest.skipUnless(hasattr(GIMarshallingTests, "array_int64_in"), "too old gi")
     def test_array_int64_in(self):
         GIMarshallingTests.array_int64_in([-1, 0, 1, 2])
 
-    @unittest.skipUnless(hasattr(GIMarshallingTests, "array_uint64_in"), "too old gi")
     def test_array_uint64_in(self):
         GIMarshallingTests.array_uint64_in([GLib.MAXUINT64, 0, 1, 2])
 
-    @unittest.skipUnless(hasattr(GIMarshallingTests, "array_unichar_in"), "too old gi")
     def test_array_unichar_in(self):
         GIMarshallingTests.array_unichar_in(list(CONSTANT_UCS4))
         GIMarshallingTests.array_unichar_in(CONSTANT_UCS4)
 
-    @unittest.skipUnless(hasattr(GIMarshallingTests, "array_unichar_out"), "too old gi")
     def test_array_unichar_out(self):
         result = list(CONSTANT_UCS4)
         assert GIMarshallingTests.array_unichar_out() == result
@@ -1243,15 +1237,9 @@ class TestArrayGVariant(unittest.TestCase):
 
 
 class TestGArray(unittest.TestCase):
-    @unittest.skipUnless(
-        hasattr(GIMarshallingTests, "garray_bool_none_in"), "too old gi"
-    )
     def test_garray_bool_none_in(self):
         GIMarshallingTests.garray_bool_none_in([True, False, True, True])
 
-    @unittest.skipUnless(
-        hasattr(GIMarshallingTests, "garray_unichar_none_in"), "too old gi"
-    )
     def test_garray_unichar_none_in(self):
         GIMarshallingTests.garray_unichar_none_in(CONSTANT_UCS4)
         GIMarshallingTests.garray_unichar_none_in(list(CONSTANT_UCS4))
@@ -2239,7 +2227,7 @@ class TestGFlags(unittest.TestCase):
         GIMarshallingTests.flags_in_zero(Number(0))
         GIMarshallingTests.Flags.in_zero(Number(0))
 
-        self.assertRaises(TypeError, GIMarshallingTests.flags_in, 1 << 1)
+        GIMarshallingTests.flags_in(1 << 1)
         self.assertRaises(
             TypeError, GIMarshallingTests.flags_in, "GIMarshallingTests.Flags.VALUE2"
         )
@@ -2339,7 +2327,7 @@ class TestNoTypeFlags(unittest.TestCase):
         )
         GIMarshallingTests.no_type_flags_in_zero(Number(0))
 
-        self.assertRaises(TypeError, GIMarshallingTests.no_type_flags_in, 1 << 1)
+        GIMarshallingTests.no_type_flags_in(1 << 1)
         self.assertRaises(
             TypeError,
             GIMarshallingTests.no_type_flags_in,
@@ -2895,9 +2883,6 @@ class TestPythonGObject(unittest.TestCase):
         object_ = self.Object(int=42)
         self.assertTrue(isinstance(object_, self.Object))
 
-    @unittest.skipUnless(
-        hasattr(GIMarshallingTests.Object, "new_fail"), "Requires newer version of GI"
-    )
     def test_object_fail(self):
         with self.assertRaises(GLib.Error):
             GIMarshallingTests.Object.new_fail(int_=42)
@@ -3080,10 +3065,6 @@ class TestPythonGObject(unittest.TestCase):
         self.assertEqual(len(exc), 1)
         self.assertEqual(exc[0].type, ValueError)
 
-    @unittest.skipUnless(
-        hasattr(GIMarshallingTests, "callback_owned_boxed"),
-        "requires newer version of GI",
-    )
     def test_callback_owned_box(self):
         def callback(box, data):
             self.box = box
@@ -3514,10 +3495,6 @@ class TestKeywordArgs(unittest.TestCase):
         GIMarshallingTests.int_three_in_three_out(1, c=4, **d)
         self.assertEqual(d, d2)
 
-    @unittest.skipUnless(
-        hasattr(GIMarshallingTests, "int_one_in_utf8_two_in_one_allows_none"),
-        "Requires newer GIMarshallingTests",
-    )
     def test_allow_none_as_default(self):
         GIMarshallingTests.int_two_in_utf8_two_in_with_allow_none(1, 2, "3", "4")
         GIMarshallingTests.int_two_in_utf8_two_in_with_allow_none(1, 2, "3")

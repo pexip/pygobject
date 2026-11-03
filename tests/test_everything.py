@@ -18,13 +18,6 @@ from gi.repository import GObject
 from gi.repository import GLib
 from gi.repository import Gio
 
-try:
-    from gi.repository import Gtk
-
-    Gtk
-except ImportError:
-    Gtk = None
-
 from .helper import capture_exceptions
 
 
@@ -675,10 +668,6 @@ class TestEverything(unittest.TestCase):
         Everything.test_glist_nothing_in(["1", "2", "3"])
         Everything.test_glist_nothing_in2(["1", "2", "3"])
 
-    @unittest.skipUnless(
-        hasattr(Everything, "test_glist_gtype_container_in"),
-        "Requires newer version of GI",
-    )
     def test_glist_gtype(self):
         Everything.test_glist_gtype_container_in(
             [Everything.TestObj, Everything.TestSubObj]
@@ -961,9 +950,6 @@ class TestCallbacks(unittest.TestCase):
         if hasattr(sys, "getrefcount"):
             self.assertEqual(sys.getrefcount(callback), refcount)
 
-    @unittest.skipUnless(
-        hasattr(Everything, "test_array_inout_callback"), "Requires newer version of GI"
-    )
     def test_callback_scope_call_array_inout(self):
         # This tests a callback that gets called multiple times from a
         # single scope call in python with inout array arguments

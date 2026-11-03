@@ -179,7 +179,7 @@ struct _PyGICallableCache {
     PyGIArgCache *user_data_varargs_arg;
 
     /* Number of args already added */
-    gssize args_offset;
+    unsigned int args_offset;
 
     /* Number of out args passed to gi_function_info_invoke.
      * This is used for the length of PyGIInvokeState.out_values */
@@ -201,9 +201,6 @@ struct _PyGICallableCache {
     gssize n_py_args;
 
     void (*deinit) (PyGICallableCache *callable_cache);
-
-    gboolean (*generate_args_cache) (PyGICallableCache *callable_cache,
-                                     GICallableInfo *callable_info);
 };
 
 struct _PyGIFunctionCache {

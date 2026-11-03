@@ -18,6 +18,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "pygi-argument.h"
 #include "pygi-basictype.h"
 #include "pygi-info.h"
 #include "pygi-util.h"
@@ -109,8 +110,9 @@ gi_argument_from_py_ssize_t (GIArgument *arg_out, Py_ssize_t size_in,
     case GI_TYPE_TAG_GHASH:
     case GI_TYPE_TAG_ERROR:
     case GI_TYPE_TAG_UNICHAR:
-    default:
         goto unhandled_type;
+    default:
+        g_assert_not_reached ();
     }
 
 overflow:
@@ -123,51 +125,6 @@ unhandled_type:
     PyErr_Format (PyExc_TypeError, "Unable to marshal C Py_ssize_t %zd to %s",
                   size_in, gi_type_tag_to_string (type_tag));
     return FALSE;
-}
-
-static gboolean
-gi_argument_to_gsize (GIArgument *arg_in, gsize *gsize_out, GITypeTag type_tag)
-{
-    switch (type_tag) {
-    case GI_TYPE_TAG_INT8:
-        *gsize_out = arg_in->v_int8;
-        return TRUE;
-    case GI_TYPE_TAG_UINT8:
-        *gsize_out = arg_in->v_uint8;
-        return TRUE;
-    case GI_TYPE_TAG_INT16:
-        *gsize_out = arg_in->v_int16;
-        return TRUE;
-    case GI_TYPE_TAG_UINT16:
-        *gsize_out = arg_in->v_uint16;
-        return TRUE;
-    case GI_TYPE_TAG_INT32:
-        *gsize_out = arg_in->v_int32;
-        return TRUE;
-    case GI_TYPE_TAG_UINT32:
-        *gsize_out = arg_in->v_uint32;
-        return TRUE;
-    case GI_TYPE_TAG_INT64:
-        if (arg_in->v_uint64 > G_MAXSIZE) {
-            PyErr_Format (PyExc_TypeError, "Unable to marshal %s to gsize",
-                          gi_type_tag_to_string (type_tag));
-            return FALSE;
-        }
-        *gsize_out = (gsize)arg_in->v_int64;
-        return TRUE;
-    case GI_TYPE_TAG_UINT64:
-        if (arg_in->v_uint64 > G_MAXSIZE) {
-            PyErr_Format (PyExc_TypeError, "Unable to marshal %s to gsize",
-                          gi_type_tag_to_string (type_tag));
-            return FALSE;
-        }
-        *gsize_out = (gsize)arg_in->v_uint64;
-        return TRUE;
-    default:
-        PyErr_Format (PyExc_TypeError, "Unable to marshal %s to gsize",
-                      gi_type_tag_to_string (type_tag));
-        return FALSE;
-    }
 }
 
 static gboolean
@@ -268,7 +225,7 @@ _pygi_marshal_from_py_array (PyGIInvokeState *state,
 
     from_py_marshaller = sequence_cache->item_cache->from_py_marshaller;
     for (i = 0, success_count = 0; i < length; i++) {
-        GIArgument item = { 0 };
+        GIArgument item = PYGI_ARG_INIT;
         gpointer item_cleanup_data = NULL;
         PyObject *py_item = PySequence_GetItem (py_arg, i);
         if (py_item == NULL) goto err;
@@ -511,6 +468,39 @@ _pygi_marshal_cleanup_from_py_array (PyGIInvokeState *state,
  * GArray from Python
  */
 
+static GArray *
+_wrap_c_array (PyGIInvokeState *state, PyGIArgGArray *array_cache,
+               gpointer data)
+{
+    size_t len = 0;
+
+    if (gi_type_info_get_array_fixed_size (
+            ((PyGIArgCache *)array_cache)->type_info, &len)) {
+        /* len is set. */
+    } else if (gi_type_info_is_zero_terminated (
+                   ((PyGIArgCache *)array_cache)->type_info)) {
+        if (data == NULL)
+            len = 0;
+        else if (array_cache->item_size == 1)
+            len = strlen ((gchar *)data);
+        else if (array_cache->item_size == sizeof (gpointer))
+            len = g_strv_length ((gchar **)data);
+        else if (array_cache->item_size == sizeof (int))
+            for (len = 0; *(((int *)data) + len); len++);
+        else if (array_cache->item_size == sizeof (short))
+            for (len = 0; *(((short *)data) + len); len++);
+        else
+            g_assert_not_reached ();
+    } else if (array_cache->has_len_arg) {
+        GIArgument len_arg = state->args[array_cache->len_arg_index].arg_value;
+
+        len = len_arg.v_long;
+    }
+
+    return g_array_new_take (data, (guint)len, FALSE,
+                             (guint)array_cache->item_size);
+}
+
 static PyObject *
 _pygi_marshal_to_py_array (PyGIInvokeState *state,
                            PyGICallableCache *callable_cache,
@@ -526,52 +516,11 @@ _pygi_marshal_to_py_array (PyGIInvokeState *state,
         gi_type_info_get_array_type (arg_cache->type_info);
 
     /* GArrays make it easier to iterate over arrays
-      * with different element sizes but requires that
-      * we allocate a GArray if the argument was a C array
-      */
+     * with different element sizes but requires that
+     * we allocate a GArray if the argument was a C array
+     */
     if (array_type == GI_ARRAY_TYPE_C) {
-        gsize len = 0;
-        if (gi_type_info_get_array_fixed_size (arg_cache->type_info, &len)) {
-            g_assert (arg->v_pointer != NULL);
-        } else if (gi_type_info_is_zero_terminated (arg_cache->type_info)) {
-            if (arg->v_pointer == NULL) {
-                len = 0;
-            } else if (array_cache->item_size == 1) {
-                len = strlen (arg->v_pointer);
-            } else if (array_cache->item_size == sizeof (gpointer)) {
-                len = g_strv_length ((gchar **)arg->v_pointer);
-            } else if (array_cache->item_size == sizeof (int)) {
-                for (len = 0; *(((int *)arg->v_pointer) + len); len++);
-            } else if (array_cache->item_size == sizeof (short)) {
-                for (len = 0; *(((short *)arg->v_pointer) + len); len++);
-            } else {
-                g_assert_not_reached ();
-            }
-        } else if (array_cache->has_len_arg) {
-            GIArgument *len_arg =
-                &state->args[array_cache->len_arg_index].arg_value;
-            PyGIArgCache *sub_cache = _pygi_callable_cache_get_arg (
-                callable_cache, array_cache->len_arg_index);
-
-            if (!gi_argument_to_gsize (len_arg, &len, sub_cache->type_tag)) {
-                return NULL;
-            }
-        }
-
-        array_ = g_array_new (FALSE, FALSE, (guint)array_cache->item_size);
-        if (array_ == NULL) {
-            PyErr_NoMemory ();
-
-            if (arg_cache->transfer == GI_TRANSFER_EVERYTHING
-                && arg->v_pointer != NULL)
-                g_free (arg->v_pointer);
-
-            return NULL;
-        }
-
-        if (array_->data != NULL) g_free (array_->data);
-        array_->data = arg->v_pointer;
-        array_->len = (guint)len;
+        array_ = _wrap_c_array (state, array_cache, arg->v_pointer);
     } else {
         array_ = arg->v_pointer;
     }
@@ -605,7 +554,7 @@ _pygi_marshal_to_py_array (PyGIInvokeState *state,
             item_size = g_array_get_element_size (array_);
 
             for (i = 0; i < array_->len; i++) {
-                GIArgument item_arg = { 0 };
+                GIArgument item_arg;
                 PyObject *py_item;
                 gpointer item_cleanup_data = NULL;
 
@@ -695,37 +644,6 @@ err:
     return NULL;
 }
 
-static GArray *
-_wrap_c_array (PyGIInvokeState *state, PyGIArgGArray *array_cache,
-               gpointer data)
-{
-    size_t len = 0;
-
-    if (gi_type_info_get_array_fixed_size (
-            ((PyGIArgCache *)array_cache)->type_info, &len)) {
-        /* len is set. */
-    } else if (gi_type_info_is_zero_terminated (
-                   ((PyGIArgCache *)array_cache)->type_info)) {
-        if (array_cache->item_size == sizeof (gpointer))
-            len = g_strv_length ((gchar **)data);
-        else if (array_cache->item_size == 1)
-            len = strlen ((gchar *)data);
-        else if (array_cache->item_size == sizeof (int))
-            for (len = 0; *(((int *)data) + len); len++);
-        else if (array_cache->item_size == sizeof (short))
-            for (len = 0; *(((short *)data) + len); len++);
-        else
-            g_assert_not_reached ();
-    } else if (array_cache->has_len_arg) {
-        GIArgument *len_arg =
-            &state->args[array_cache->len_arg_index].arg_value;
-        len = len_arg->v_long;
-    }
-
-    return g_array_new_take (data, (guint)len, FALSE,
-                             (guint)array_cache->item_size);
-}
-
 static void
 _pygi_marshal_cleanup_to_py_array (PyGIInvokeState *state,
                                    PyGIArgCache *arg_cache,
@@ -740,6 +658,8 @@ _pygi_marshal_cleanup_to_py_array (PyGIInvokeState *state,
     gboolean free_array_full = TRUE;
     GIArrayType array_type =
         gi_type_info_get_array_type (arg_cache->type_info);
+
+    if (data == NULL) return;
 
     if (arg_cache->transfer == GI_TRANSFER_EVERYTHING
         || arg_cache->transfer == GI_TRANSFER_CONTAINER) {
@@ -865,13 +785,11 @@ pygi_arg_garray_len_arg_setup (PyGIArgGArray *seq_cache, GITypeInfo *type_info,
          */
         if (((gssize)seq_cache->len_arg_index) < arg_index
             && direction & PYGI_DIRECTION_FROM_PYTHON) {
-            guint i;
             (*py_arg_index) -= 1;
             callable_cache->n_py_args -= 1;
 
-            for (i = (guint)seq_cache->len_arg_index + 1;
-                 (gsize)i < _pygi_callable_cache_args_len (callable_cache);
-                 i++) {
+            for (guint i = seq_cache->len_arg_index + 1;
+                 i < _pygi_callable_cache_args_len (callable_cache); i++) {
                 PyGIArgCache *update_cache =
                     _pygi_callable_cache_get_arg (callable_cache, i);
                 if (update_cache == NULL) break;
@@ -919,10 +837,10 @@ pygi_arg_garray_setup (
 }
 
 PyGIArgCache *
-pygi_arg_garray_new_from_info (GITypeInfo *type_info, GIArgInfo *arg_info,
-                               GITransfer transfer, PyGIDirection direction,
-                               PyGICallableCache *callable_cache,
-                               gssize arg_index, gssize *py_arg_index)
+pygi_arg_garray_new_from_info (
+    GITypeInfo *type_info, GIArgInfo *arg_info, GITransfer transfer,
+    PyGIDirection direction, PyGICallableCache *callable_cache /* nullable */,
+    gssize arg_index, gssize *py_arg_index)
 {
     PyGIArgGArray *array_cache = g_slice_new0 (PyGIArgGArray);
     if (array_cache == NULL) return NULL;
@@ -933,8 +851,9 @@ pygi_arg_garray_new_from_info (GITypeInfo *type_info, GIArgInfo *arg_info,
         return NULL;
     }
 
-    pygi_arg_garray_len_arg_setup (array_cache, type_info, callable_cache,
-                                   direction, arg_index, py_arg_index);
+    if (callable_cache)
+        pygi_arg_garray_len_arg_setup (array_cache, type_info, callable_cache,
+                                       direction, arg_index, py_arg_index);
 
     return (PyGIArgCache *)array_cache;
 }

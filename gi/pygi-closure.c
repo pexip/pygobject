@@ -18,6 +18,7 @@
  */
 
 #include "pygi-closure.h"
+#include "pygi-argument.h"
 #include "pygi-async.h"
 #include "pygi-ccallback.h"
 #include "pygi-error.h"
@@ -59,10 +60,10 @@ _pygi_closure_assign_pyobj_to_retval (gpointer retval, GIArgument *arg,
         *((ffi_arg *)retval) = arg->v_uint32;
         break;
     case GI_TYPE_TAG_INT64:
-        *((ffi_sarg *)retval) = arg->v_int64;
+        *((ffi_sarg *)retval) = (ffi_sarg)arg->v_int64;
         break;
     case GI_TYPE_TAG_UINT64:
-        *((ffi_arg *)retval) = arg->v_uint64;
+        *((ffi_arg *)retval) = (ffi_arg)arg->v_uint64;
         break;
     case GI_TYPE_TAG_FLOAT:
         *((gfloat *)retval) = arg->v_float;
@@ -92,9 +93,18 @@ _pygi_closure_assign_pyobj_to_retval (gpointer retval, GIArgument *arg,
 
         break;
     }
-    default:
+    case GI_TYPE_TAG_VOID:
+    case GI_TYPE_TAG_UTF8:
+    case GI_TYPE_TAG_FILENAME:
+    case GI_TYPE_TAG_ARRAY:
+    case GI_TYPE_TAG_GLIST:
+    case GI_TYPE_TAG_GSLIST:
+    case GI_TYPE_TAG_GHASH:
+    case GI_TYPE_TAG_ERROR:
         *(ffi_arg *)retval = (ffi_arg)arg->v_pointer;
         break;
+    default:
+        g_assert_not_reached ();
     }
 }
 
@@ -169,10 +179,18 @@ _pygi_closure_assign_pyobj_to_out_argument (gpointer out_arg, GIArgument *arg,
         }
         break;
     }
-
-    default:
+    case GI_TYPE_TAG_VOID:
+    case GI_TYPE_TAG_UTF8:
+    case GI_TYPE_TAG_FILENAME:
+    case GI_TYPE_TAG_ARRAY:
+    case GI_TYPE_TAG_GLIST:
+    case GI_TYPE_TAG_GSLIST:
+    case GI_TYPE_TAG_GHASH:
+    case GI_TYPE_TAG_ERROR:
         *((gpointer *)out_arg) = arg->v_pointer;
         break;
+    default:
+        g_assert_not_reached ();
     }
 }
 
@@ -180,9 +198,7 @@ static void
 _pygi_closure_convert_ffi_arguments (PyGIInvokeArgState *state,
                                      PyGICallableCache *cache, void **args)
 {
-    guint i;
-
-    for (i = 0; i < _pygi_callable_cache_args_len (cache); i++) {
+    for (guint i = 0; i < _pygi_callable_cache_args_len (cache); i++) {
         PyGIArgCache *arg_cache = g_ptr_array_index (cache->args_cache, i);
         gpointer arg_pointer;
 
@@ -217,6 +233,7 @@ _pygi_closure_convert_ffi_arguments (PyGIInvokeArgState *state,
             state[i].arg_value.v_int32 = *(gint32 *)arg_pointer;
             break;
         case GI_TYPE_TAG_UINT32:
+        case GI_TYPE_TAG_UNICHAR:
             state[i].arg_value.v_uint32 = *(guint32 *)arg_pointer;
             break;
         case GI_TYPE_TAG_INT64:
@@ -225,6 +242,9 @@ _pygi_closure_convert_ffi_arguments (PyGIInvokeArgState *state,
         case GI_TYPE_TAG_UINT64:
             state[i].arg_value.v_uint64 = *(guint64 *)arg_pointer;
             break;
+        case GI_TYPE_TAG_GTYPE:
+            state[i].arg_value.v_size = *(gsize *)arg_pointer;
+            break;
         case GI_TYPE_TAG_FLOAT:
             state[i].arg_value.v_float = *(gfloat *)arg_pointer;
             break;
@@ -232,6 +252,7 @@ _pygi_closure_convert_ffi_arguments (PyGIInvokeArgState *state,
             state[i].arg_value.v_double = *(gdouble *)arg_pointer;
             break;
         case GI_TYPE_TAG_UTF8:
+        case GI_TYPE_TAG_FILENAME:
             state[i].arg_value.v_string = *(gchar **)arg_pointer;
             break;
         case GI_TYPE_TAG_INTERFACE: {
@@ -249,9 +270,6 @@ _pygi_closure_convert_ffi_arguments (PyGIInvokeArgState *state,
             }
             break;
         }
-        case GI_TYPE_TAG_UNICHAR:
-            state[i].arg_value.v_uint32 = *(guint32 *)arg_pointer;
-            break;
         case GI_TYPE_TAG_ERROR:
         case GI_TYPE_TAG_GHASH:
         case GI_TYPE_TAG_GLIST:
@@ -261,14 +279,12 @@ _pygi_closure_convert_ffi_arguments (PyGIInvokeArgState *state,
             state[i].arg_value.v_pointer = *(gpointer *)arg_pointer;
             break;
         default:
-            g_warning ("Unhandled type tag %s",
-                       gi_type_tag_to_string (arg_cache->type_tag));
-            state[i].arg_value.v_pointer = 0;
+            g_assert_not_reached ();
         }
     }
 
     if (pygi_callable_cache_can_throw_gerror (cache)) {
-        gssize error_index = _pygi_callable_cache_args_len (cache);
+        guint error_index = _pygi_callable_cache_args_len (cache);
 
         state[error_index].arg_value.v_pointer =
             *(gpointer *)args[error_index];
@@ -321,16 +337,14 @@ _pygi_closure_convert_arguments (PyGIInvokeState *state,
 {
     PyGICallableCache *cache = (PyGICallableCache *)closure_cache;
     gssize n_in_args = 0;
-    gssize i;
 
-    for (i = 0; (gsize)i < _pygi_callable_cache_args_len (cache); i++) {
+    for (guint i = 0; i < _pygi_callable_cache_args_len (cache); i++) {
         PyGIArgCache *arg_cache = g_ptr_array_index (cache->args_cache, i);
 
         if (arg_cache->direction & PYGI_DIRECTION_TO_PYTHON) {
             PyObject *value;
 
-            if (cache->has_user_data
-                && ((gssize)cache->user_data_index) == i) {
+            if (cache->has_user_data && (cache->user_data_index) == i) {
                 if (state->user_data == NULL) {
                     /* user_data can be NULL for connect functions which don't accept
                      * user_data or as the default for user_data in the middle of function
@@ -396,7 +410,6 @@ _pygi_closure_set_out_arguments (PyGIInvokeState *state,
                                  PyGICallableCache *cache, PyObject *py_retval,
                                  void *resp)
 {
-    gssize i;
     gssize i_py_retval = 0;
     gboolean success;
 
@@ -421,7 +434,7 @@ _pygi_closure_set_out_arguments (PyGIInvokeState *state,
         i_py_retval++;
     }
 
-    for (i = 0; (gsize)i < _pygi_callable_cache_args_len (cache); i++) {
+    for (guint i = 0; i < _pygi_callable_cache_args_len (cache); i++) {
         PyGIArgCache *arg_cache = g_ptr_array_index (cache->args_cache, i);
 
         if (arg_cache->direction & PYGI_DIRECTION_FROM_PYTHON) {
@@ -465,16 +478,13 @@ static void
 _pygi_closure_clear_retvals (PyGIInvokeState *state, PyGICallableCache *cache,
                              gpointer resp)
 {
-    gsize i;
-    GIArgument arg = {
-        0,
-    };
+    GIArgument arg = PYGI_ARG_INIT;
 
     if (cache->return_cache->type_tag != GI_TYPE_TAG_VOID) {
         _pygi_closure_assign_pyobj_to_retval (resp, &arg, cache->return_cache);
     }
 
-    for (i = 0; i < _pygi_callable_cache_args_len (cache); i++) {
+    for (guint i = 0; i < _pygi_callable_cache_args_len (cache); i++) {
         PyGIArgCache *arg_cache = g_ptr_array_index (cache->args_cache, i);
 
         if (arg_cache->direction & PYGI_DIRECTION_FROM_PYTHON) {
@@ -580,12 +590,16 @@ end:
         _pygi_invoke_closure_clear_py_data (closure);
         async_free_list = g_slist_prepend (async_free_list, closure);
         break;
-    default:
+    case GI_SCOPE_TYPE_INVALID:
+    case GI_SCOPE_TYPE_FOREVER:
         /* Handle new scopes added by gobject-introspection */
         g_critical (
             "Unknown scope reached inside %s. Please file an issue "
             "at https://gitlab.gnome.org/GNOME/pygobject/issues/new",
             gi_base_info_get_name (GI_BASE_INFO (closure->info)));
+        break;
+    default:
+        g_assert_not_reached ();
     }
 
     _invoke_state_clear (&state);

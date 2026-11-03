@@ -1,9 +1,13 @@
 project(
   'pygobject',
   'c',
-  version : '3.55.0',
+  version : '3.55.2',
   meson_version : '>= 0.64.0',
-  default_options : ['warning_level=1', 'buildtype=debugoptimized']
+  default_options : [
+    'warning_level=1',
+    'buildtype=debugoptimized',
+    'c_std=gnu99,c99'
+  ]
 )
 
 pygobject_version = meson.project_version()
@@ -110,6 +114,7 @@ else
     '-Wall',
     '-Warray-bounds',
     '-Wcast-align',
+    '-Wconversion',
     '-Wduplicated-branches',
     '-Wextra',
     '-Wformat=2',
@@ -135,6 +140,7 @@ else
     '-Wstrict-aliasing',
     '-Wstrict-prototypes',
     '-Wswitch-default',
+    '-Wswitch-enum',
     '-Wundef',
     '-Wunused-but-set-variable',
     '-Wwrite-strings',
@@ -147,7 +153,6 @@ else
     '-Wno-discarded-qualifiers',
     '-Wno-sign-conversion',
     '-Wno-cast-function-type',
-    '-Wno-int-conversion',
   ]
 
   main_c_args += [

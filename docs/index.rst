@@ -29,7 +29,7 @@
 
 .. include:: ../README.rst
     :start-after: |
-    :end-before: ----
+    :end-before: |
 
 If you want to write a Python application for `GNOME
 <https://www.gnome.org/>`__ or a Python GUI application using GTK, then
@@ -39,8 +39,6 @@ information on specific libraries, check out the
 `GNOME Python API documentation <https://api.pygobject.gnome.org/>`__.
 
 .. code:: python
-
-    import sys
 
     import gi
 
@@ -59,8 +57,7 @@ information on specific libraries, check out the
 
 
     app = MyApplication()
-    exit_status = app.run(sys.argv)
-    sys.exit(exit_status)
+    app.run()
 
 
 How does it work?
@@ -109,6 +106,7 @@ Who Is Using PyGObject?
 * `Girens <https://gitlab.gnome.org/tijder/girens>`__ - a Plex client for playing movies, TV shows and music from your Plex library
 * `GNOME Music <https://apps.gnome.org/Music/>`__ - a music player for GNOME
 * `GNOME Tweaks <https://wiki.gnome.org/Apps/Tweaks>`__ - a tool to customize advanced GNOME options
+* `GNOME Video Player <https://gitlab.gnome.org/GNOME/showtime/>`__ - a GNOME video player
 * `Gramps <https://gramps-project.org/>`__ - a genealogy program
 * `Komikku <https://valos.gitlab.io/Komikku/>`__ - a manga reader
 * `Lollypop <https://wiki.gnome.org/Apps/Lollypop>`__ - a modern music player

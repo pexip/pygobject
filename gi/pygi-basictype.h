@@ -24,14 +24,12 @@
 
 G_BEGIN_DECLS
 
-gboolean pygi_marshal_from_py_basic_type (PyObject *object, /* in */
-                                          GIArgument *arg,  /* out */
-                                          GITypeTag type_tag,
-                                          GITransfer transfer,
-                                          gpointer *cleanup_data);
+GIArgument pygi_marshal_from_py_basic_type (PyObject *object,
+                                            GITypeTag type_tag,
+                                            GITransfer transfer,
+                                            gpointer *cleanup_data);
 
-PyObject *pygi_marshal_to_py_basic_type (GIArgument *arg, /* in */
-                                         GITypeTag type_tag,
+PyObject *pygi_marshal_to_py_basic_type (GIArgument arg, GITypeTag type_tag,
                                          GITransfer transfer);
 
 gboolean pygi_gpointer_from_py (PyObject *py_arg, gpointer *result);
@@ -50,6 +48,7 @@ PyObject *pygi_filename_to_py (gchar *value);
 PyObject *pygi_gsize_to_py (gsize value);
 PyObject *pygi_gssize_to_py (gssize value);
 PyObject *pygi_guint32_to_py (guint32 value);
+PyObject *pygi_gunichar_to_py (gunichar value);
 
 gboolean pygi_gboolean_from_py (PyObject *object, gboolean *result);
 gboolean pygi_gint64_from_py (PyObject *object, gint64 *result);

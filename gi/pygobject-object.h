@@ -8,11 +8,11 @@
 /* Data that belongs to the GObject instance, not the Python wrapper */
 struct _PyGObjectData {
     PyTypeObject *type; /* wrapper type for this instance */
+    PyObject *inst_dict;
     GSList *closures;
 };
 
 extern GType PY_TYPE_OBJECT;
-extern GQuark pygobject_instance_data_key;
 extern GQuark pygobject_custom_key;
 extern GQuark pygobject_wrapper_key;
 extern GQuark pygobject_class_key;
@@ -21,13 +21,6 @@ extern GQuark pygobject_class_init_key;
 extern PyTypeObject PyGObjectWeakRef_Type;
 extern PyTypeObject PyGObject_Type;
 extern PyTypeObject *PyGObject_MetaType;
-
-static inline PyGObjectData *
-pyg_object_peek_inst_data (GObject *obj)
-{
-    return ((PyGObjectData *)g_object_get_qdata (obj,
-                                                 pygobject_instance_data_key));
-}
 
 void pygobject_register_class (PyObject *dict, const gchar *type_name,
                                GType gtype, PyTypeObject *type,

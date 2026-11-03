@@ -16,6 +16,8 @@ It supports Linux, Windows, and macOS and works with **Python 3.9+** and
 **PyPy3**. PyGObject, including this documentation, is licensed under the
 **LGPLv2.1+**.
 
+|
+
 Homepage
 --------
 

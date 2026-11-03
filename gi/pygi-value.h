@@ -28,15 +28,11 @@ GIArgument _pygi_argument_from_g_value (const GValue *value,
 
 int pyg_value_from_pyobject (GValue *value, PyObject *obj);
 int pyg_value_from_pyobject_with_error (GValue *value, PyObject *obj);
-PyObject *pyg_value_as_pyobject (const GValue *value, gboolean copy_boxed);
+PyObject *pyg_value_to_pyobject (const GValue *value, gboolean copy_boxed);
 int pyg_param_gvalue_from_pyobject (GValue *value, PyObject *py_obj,
                                     const GParamSpec *pspec);
-PyObject *pyg_param_gvalue_as_pyobject (const GValue *gvalue,
-                                        gboolean copy_boxed,
-                                        const GParamSpec *pspec);
 
-PyObject *pygi_value_to_py_basic_type (const GValue *value, GType fundamental,
-                                       gboolean *handled);
+PyObject *pygi_value_to_py_basic_type (const GValue *value, GType fundamental);
 
 PyObject *pyg__gvalue_get (PyObject *module, PyObject *pygvalue);
 PyObject *pyg__gvalue_set (PyObject *module, PyObject *args);

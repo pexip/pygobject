@@ -7,8 +7,6 @@ sources = [
   'pygobject-object.c',
   'pygobject-props.c',
   'pygpointer.c',
-  'pygoptioncontext.c',
-  'pygoptiongroup.c',
   'pygspawn.c',
   'gimodule.c',
   'pygi-capi.c',
@@ -42,11 +40,9 @@ sources = [
   'pygi-marshal-cleanup.c',
   'pygi-basictype.c',
   'pygi-error.c',
-  'pygi-object.c',
   'pygi-fundamental.c',
   'pygi-value.c',
-  'pygi-struct-marshal.c',
-  ]
+]
 
 headers = [
   'pygobject.h',

@@ -44,6 +44,7 @@ gi_argument_from_c_long (GIArgument *arg_out, long c_long_in,
         arg_out->v_int32 = (gint32)c_long_in;
         return TRUE;
     case GI_TYPE_TAG_UINT32:
+    case GI_TYPE_TAG_UNICHAR:
         arg_out->v_uint32 = (guint32)c_long_in;
         return TRUE;
     case GI_TYPE_TAG_INT64:
@@ -52,10 +53,24 @@ gi_argument_from_c_long (GIArgument *arg_out, long c_long_in,
     case GI_TYPE_TAG_UINT64:
         arg_out->v_uint64 = (guint64)c_long_in;
         return TRUE;
-    default:
+    case GI_TYPE_TAG_VOID:
+    case GI_TYPE_TAG_BOOLEAN:
+    case GI_TYPE_TAG_FLOAT:
+    case GI_TYPE_TAG_DOUBLE:
+    case GI_TYPE_TAG_GTYPE:
+    case GI_TYPE_TAG_UTF8:
+    case GI_TYPE_TAG_FILENAME:
+    case GI_TYPE_TAG_ARRAY:
+    case GI_TYPE_TAG_INTERFACE:
+    case GI_TYPE_TAG_GLIST:
+    case GI_TYPE_TAG_GSLIST:
+    case GI_TYPE_TAG_GHASH:
+    case GI_TYPE_TAG_ERROR:
         PyErr_Format (PyExc_TypeError, "Unable to marshal C long %ld to %s",
                       c_long_in, gi_type_tag_to_string (type_tag));
         return FALSE;
+    default:
+        g_assert_not_reached ();
     }
 }
 
@@ -80,6 +95,7 @@ gi_argument_to_c_long (GIArgument *arg_in, long *c_long_out,
         *c_long_out = arg_in->v_int32;
         return TRUE;
     case GI_TYPE_TAG_UINT32:
+    case GI_TYPE_TAG_UNICHAR:
         *c_long_out = arg_in->v_uint32;
         return TRUE;
     case GI_TYPE_TAG_INT64:
@@ -98,10 +114,24 @@ gi_argument_to_c_long (GIArgument *arg_in, long *c_long_out,
         }
         *c_long_out = (glong)arg_in->v_uint64;
         return TRUE;
-    default:
+    case GI_TYPE_TAG_VOID:
+    case GI_TYPE_TAG_BOOLEAN:
+    case GI_TYPE_TAG_FLOAT:
+    case GI_TYPE_TAG_DOUBLE:
+    case GI_TYPE_TAG_GTYPE:
+    case GI_TYPE_TAG_UTF8:
+    case GI_TYPE_TAG_FILENAME:
+    case GI_TYPE_TAG_ARRAY:
+    case GI_TYPE_TAG_INTERFACE:
+    case GI_TYPE_TAG_GLIST:
+    case GI_TYPE_TAG_GSLIST:
+    case GI_TYPE_TAG_GHASH:
+    case GI_TYPE_TAG_ERROR:
         PyErr_Format (PyExc_TypeError, "Unable to marshal %s to C long",
                       gi_type_tag_to_string (type_tag));
         return FALSE;
+    default:
+        g_assert_not_reached ();
     }
 }
 
@@ -112,38 +142,32 @@ _pygi_marshal_from_py_interface_enum (PyGIInvokeState *state,
                                       PyObject *py_arg, GIArgument *arg,
                                       gpointer *cleanup_data)
 {
-    PyObject *py_long;
-    long c_long;
-    gint is_instance;
+    gint c_int;
     PyGIInterfaceCache *iface_cache = (PyGIInterfaceCache *)arg_cache;
     GIBaseInfo *interface = NULL;
+    GType enum_type =
+        gi_registered_type_info_get_g_type (iface_cache->interface_info);
 
-    is_instance = PyObject_IsInstance (py_arg, iface_cache->py_type);
-
-    py_long = PyNumber_Long (py_arg);
-    if (py_long == NULL) {
-        PyErr_Clear ();
-        goto err;
+    if (pyg_enum_get_value (enum_type, py_arg, &c_int) != 0) {
+        return FALSE;
     }
-
-    c_long = PyLong_AsLong (py_long);
-    Py_DECREF (py_long);
 
     /* Write c_long into arg */
     interface = gi_type_info_get_interface (arg_cache->type_info);
     g_assert (GI_IS_ENUM_INFO (interface));
     if (!gi_argument_from_c_long (
-            arg, c_long,
+            arg, c_int,
             gi_enum_info_get_storage_type ((GIEnumInfo *)interface))) {
-        g_assert_not_reached ();
         gi_base_info_unref (interface);
         return FALSE;
     }
 
+
     /* If this is not an instance of the Enum type that we want
      * we need to check if the value is equivilant to one of the
      * Enum's memebers */
-    if (!is_instance) {
+
+    if (!PyObject_IsInstance (py_arg, iface_cache->py_type)) {
         unsigned int i;
         gboolean is_found = FALSE;
 
@@ -154,23 +178,22 @@ _pygi_marshal_from_py_interface_enum (PyGIInvokeState *state,
                 GI_ENUM_INFO (iface_cache->interface_info), i);
             gint64 enum_value = gi_value_info_get_value (value_info);
             gi_base_info_unref ((GIBaseInfo *)value_info);
-            if (c_long == enum_value) {
+            if (c_int == enum_value) {
                 is_found = TRUE;
                 break;
             }
         }
 
-        if (!is_found) goto err;
+        if (!is_found) {
+            PyErr_Format (PyExc_TypeError, "Expected a %s, but got %s",
+                          iface_cache->type_name, Py_TYPE (py_arg)->tp_name);
+            gi_base_info_unref (interface);
+            return FALSE;
+        }
     }
 
     gi_base_info_unref (interface);
     return TRUE;
-
-err:
-    if (interface) gi_base_info_unref (interface);
-    PyErr_Format (PyExc_TypeError, "Expected a %s, but got %s",
-                  iface_cache->type_name, Py_TYPE (py_arg)->tp_name);
-    return FALSE;
 }
 
 static gboolean
@@ -180,31 +203,21 @@ _pygi_marshal_from_py_interface_flags (PyGIInvokeState *state,
                                        PyObject *py_arg, GIArgument *arg,
                                        gpointer *cleanup_data)
 {
-    PyObject *py_long;
-    unsigned long c_ulong;
-    gint is_instance;
+    guint c_uint;
     PyGIInterfaceCache *iface_cache = (PyGIInterfaceCache *)arg_cache;
     GIBaseInfo *interface;
+    GType flags_type =
+        gi_registered_type_info_get_g_type (iface_cache->interface_info);
 
-    is_instance = PyObject_IsInstance (py_arg, iface_cache->py_type);
-
-    py_long = PyNumber_Long (py_arg);
-    if (py_long == NULL) {
-        PyErr_Clear ();
-        goto err;
+    if (pyg_flags_get_value (flags_type, py_arg, &c_uint) != 0) {
+        return FALSE;
     }
-
-    c_ulong = PyLong_AsUnsignedLongMask (py_long);
-    Py_DECREF (py_long);
-
-    /* only 0 or argument of type Flag is allowed */
-    if (!is_instance && c_ulong != 0) goto err;
 
     /* Write c_long into arg */
     interface = gi_type_info_get_interface (arg_cache->type_info);
     g_assert (GI_IS_FLAGS_INFO (interface));
     if (!gi_argument_from_c_long (
-            arg, c_ulong,
+            arg, c_uint,
             gi_enum_info_get_storage_type ((GIEnumInfo *)interface))) {
         gi_base_info_unref (interface);
         return FALSE;
@@ -212,11 +225,6 @@ _pygi_marshal_from_py_interface_flags (PyGIInvokeState *state,
 
     gi_base_info_unref (interface);
     return TRUE;
-
-err:
-    PyErr_Format (PyExc_TypeError, "Expected a %s, but got %s",
-                  iface_cache->type_name, Py_TYPE (py_arg)->tp_name);
-    return FALSE;
 }
 
 static PyObject *
@@ -239,7 +247,12 @@ _pygi_marshal_to_py_interface_enum (PyGIInvokeState *state,
     }
     gi_base_info_unref (interface);
 
-    return pyg_enum_val_new (iface_cache->py_type, c_long);
+    if (c_long < INT_MIN || c_long > INT_MAX) {
+        PyErr_Format (PyExc_OverflowError, "Value %ld is not in integer range",
+                      c_long);
+        return NULL;
+    }
+    return pyg_enum_val_new (iface_cache->py_type, (int)c_long);
 }
 
 static PyObject *

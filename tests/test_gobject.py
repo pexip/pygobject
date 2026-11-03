@@ -512,9 +512,6 @@ class TestContextManagers(unittest.TestCase):
         self.assertEqual(self.tracking, [2])
 
 
-@unittest.skipUnless(
-    hasattr(GObject.Binding, "unbind"), "Requires newer GLib which has g_binding_unbind"
-)
 class TestPropertyBindings(unittest.TestCase):
     class TestObject(GObject.GObject):
         int_prop = GObject.Property(default=0, type=int)
@@ -796,46 +793,6 @@ class TestGValue(unittest.TestCase):
         value = GObject.Value(GObject.TYPE_OBJECT, obj)
         self.assertEqual(value.get_value(), obj)
 
-    def test_dispose(self):
-        class TestObject(GObject.Object):
-            def __init__(self):
-                super().__init__()
-                self.dispose_invoked = False
-
-            def do_dispose(self):
-                self.dispose_invoked = True
-                super().do_dispose()
-
-        obj = TestObject()
-        obj.run_dispose()
-
-        assert obj.dispose_invoked
-
-    def test_dispose_with_python_base_class(self):
-        class TestBaseObject(GObject.Object):
-            def __init__(self):
-                super().__init__()
-                self.dispose_invoked_base = False
-
-            def do_dispose(self):
-                self.dispose_invoked_base = True
-                super().do_dispose()
-
-        class TestObject(TestBaseObject):
-            def __init__(self):
-                super().__init__()
-                self.dispose_invoked = False
-
-            def do_dispose(self):
-                self.dispose_invoked = True
-                super().do_dispose()
-
-        obj = TestObject()
-        obj.run_dispose()
-
-        assert obj.dispose_invoked_base
-        assert obj.dispose_invoked
-
     def test_value_array(self):
         value = GObject.Value(GObject.ValueArray)
         self.assertEqual(value.g_type, GObject.type_from_name("GValueArray"))
@@ -890,6 +847,62 @@ class TestGValue(unittest.TestCase):
         value = GObject.Value(GLib.Error)
         self.assertEqual(value.g_type, GObject.type_from_name("GError"))
         self.assertEqual(value.get_value(), None)
+
+
+class TestDispose(unittest.TestCase):
+    def test_dispose(self):
+        class TestObject(GObject.Object):
+            def __init__(self):
+                super().__init__()
+                self.dispose_invoked = False
+
+            def do_dispose(self):
+                self.dispose_invoked = True
+                super().do_dispose()
+
+        obj = TestObject()
+        obj.run_dispose()
+
+        assert obj.dispose_invoked
+
+    def test_dispose_with_python_base_class(self):
+        class TestBaseObject(GObject.Object):
+            def __init__(self):
+                super().__init__()
+                self.dispose_invoked_base = False
+
+            def do_dispose(self):
+                self.dispose_invoked_base = True
+                super().do_dispose()
+
+        class TestObject(TestBaseObject):
+            def __init__(self):
+                super().__init__()
+                self.dispose_invoked = False
+
+            def do_dispose(self):
+                self.dispose_invoked = True
+                super().do_dispose()
+
+        obj = TestObject()
+        obj.run_dispose()
+
+        assert obj.dispose_invoked_base
+        assert obj.dispose_invoked
+
+    @unittest.skipIf(platform.python_implementation() == "PyPy", "CPython only")
+    def test_dispose_on_object_destruction(self):
+        dispose_invoked = False
+
+        class TestObject(GObject.Object):
+            def do_dispose(self):
+                nonlocal dispose_invoked
+                dispose_invoked = True
+                super().do_dispose()
+
+        TestObject()
+
+        assert dispose_invoked
 
 
 def test_list_properties():

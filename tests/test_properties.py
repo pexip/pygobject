@@ -5,6 +5,7 @@ import struct
 import types
 import unittest
 import tempfile
+import threading
 
 import pytest
 
@@ -1293,6 +1294,16 @@ class CPropertiesTestBase:
 
         self.assertAlmostEqual(self.get_prop(obj, "some-double"), 42.0)
 
+    def test_byte_array(self):
+        self.assertEqual(self.get_prop(self.obj, "some-byte-array"), b"")
+        self.set_prop(self.obj, "some-byte-array", b"hello world")
+        self.assertEqual(self.get_prop(self.obj, "some-byte-array"), b"hello world")
+
+        self.assertRaises(TypeError, self.set_prop, self.obj, "some-byte-array", 1)
+        self.assertRaises(
+            TypeError, self.set_prop, self.obj, "some-byte-array", "normal string"
+        )
+
     def test_strv(self):
         self.assertEqual(self.get_prop(self.obj, "some-strv"), [])
         self.set_prop(self.obj, "some-strv", ["hello", "world"])
@@ -1312,6 +1323,18 @@ class CPropertiesTestBase:
         obj = GIMarshallingTests.PropertiesObject(some_strv=["foo"])
         self.assertEqual(self.get_prop(obj, "some-strv"), ["foo"])
         self.assertRaises(TypeError, self.set_prop, self.obj, "some-strv", ["foo", 1])
+
+    def test_some_hash_table(self):
+        self.assertEqual(self.get_prop(self.obj, "some-hash-table"), None)
+        self.set_prop(self.obj, "some-hash-table", {1: "foo", 2: "bar"})
+        self.assertEqual(
+            self.get_prop(self.obj, "some-hash-table"), {1: "foo", 2: "bar"}
+        )
+
+        self.assertRaises(TypeError, self.set_prop, self.obj, "some-hash-table", 1)
+        self.assertRaises(
+            TypeError, self.set_prop, self.obj, "some-hash-table", {"a": "b"}
+        )
 
     def test_boxed_struct(self):
         self.assertEqual(self.get_prop(self.obj, "some-boxed-struct"), None)
@@ -1399,15 +1422,23 @@ class CPropertiesTestBase:
         self.set_prop(obj, "gtype", str)
         self.assertEqual(self.get_prop(obj, "gtype"), GObject.TYPE_STRING)
 
+    def test_unichar(self):
+        obj = Regress.TestObj()
+        self.assertEqual(self.get_prop(obj, "unichar"), "")
+
+        self.set_prop(obj, "unichar", "🙃")
+        self.assertEqual(self.get_prop(obj, "unichar"), "🙃")
+
+        with pytest.raises(TypeError):
+            self.set_prop(obj, "unichar", "🙃🙃🙃")
+
     def test_hash_table(self):
         obj = Regress.TestObj()
         self.assertEqual(self.get_prop(obj, "hash-table"), None)
 
         self.set_prop(obj, "hash-table", {"mec": 56})
         self.assertTrue(isinstance(self.get_prop(obj, "hash-table"), dict))
-        self.assertEqual(
-            next(iter(self.get_prop(obj, "hash-table").items())), ("mec", 56)
-        )
+        self.assertEqual(list(self.get_prop(obj, "hash-table").items()), [("mec", 56)])
 
     def test_parent_class(self):
         class A(Regress.TestObj):
@@ -1499,6 +1530,106 @@ class TestCGetPropertyMethod(CPropertiesTestBase, unittest.TestCase):
         obj.set_property(name, value)
 
 
+class TestCSetPropertyAsyncMethod(CPropertiesTestBase, unittest.TestCase):
+    # C property tests using the set_property_async() method.
+    def get_prop(self, obj, name):
+        return obj.get_property(name)
+
+    def set_prop(self, obj, name, value):
+        obj.set_property_async(name, value)
+
+
+class TestSetPropertyAsync(unittest.TestCase):
+    def test_python_property(self):
+        obj = new(PropertyObject, normal="123")
+        obj.set_property_async("normal", "456")
+        self.assertEqual(obj.props.normal, "456")
+        obj.set_property_async("normal", 789)
+        self.assertEqual(obj.props.normal, "789")
+
+    def test_python_setter(self):
+        class C(GObject.Object):
+            def __init__(self):
+                super().__init__()
+                self.calls = []
+
+            @GObject.Property(type=int)
+            def value(self):
+                return self.calls[-1] if self.calls else 0
+
+            @value.setter
+            def value(self, v):
+                self.calls.append(v)
+
+        obj = C()
+        obj.set_property_async("value", 42)
+        self.assertEqual(obj.calls, [42])
+        self.assertEqual(obj.props.value, 42)
+
+    def test_from_thread(self):
+        class C(GObject.Object):
+            value = GObject.Property(type=int)
+
+        obj = C()
+        errors = []
+
+        def worker():
+            try:
+                for i in range(100):
+                    obj.set_property_async("value", i)
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=worker) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(obj.props.value, 99)
+
+    def test_construct_only(self):
+        obj = new(PropertyObject, construct_only="123")
+        with pytest.raises(TypeError, match="can only be set in constructor"):
+            obj.set_property_async("construct-only", "456")
+        self.assertEqual(obj.props.construct_only, "123")
+
+    def test_not_writable(self):
+        class C(GObject.Object):
+            __gproperties__ = {
+                "ro": (TYPE_INT, "ro", "ro", 0, 10, 5, ParamFlags.READABLE),
+            }
+
+            def do_get_property(self, pspec):
+                return 5
+
+        obj = C()
+        with pytest.raises(TypeError, match="is not writable"):
+            obj.set_property_async("ro", 1)
+
+    def test_unknown_property(self):
+        obj = PropertyObject()
+        with pytest.raises(TypeError):
+            obj.set_property_async("does-not-exist", 1)
+
+    def test_conversion_error(self):
+        obj = PropertyObject()
+        with pytest.raises((TypeError, OverflowError)):
+            obj.set_property_async("uint64", -1)
+        self.assertEqual(obj.props.uint64, 0)
+
+        with pytest.raises(TypeError, match="could not convert"):
+            obj.set_property_async("enum", object())
+
+    def test_wrong_arguments(self):
+        obj = PropertyObject()
+        with pytest.raises(TypeError):
+            obj.set_property_async("normal")
+        with pytest.raises(TypeError):
+            obj.set_property_async(1, "x")
+
+
 def test_gobject_inheritance_with_incomplete_initialization():
     class Test:
         def __init__(self):
@@ -1515,9 +1646,6 @@ def test_gobject_inheritance_with_incomplete_initialization():
         bomb.qdata
 
 
-@pytest.mark.skipif(
-    not hasattr(Regress, "AnnotationObject"), reason="no Regress.AnnotationObject"
-)
 def test_get_function_property():
     obj = Regress.AnnotationObject()
 
@@ -1525,9 +1653,6 @@ def test_get_function_property():
         assert obj.props.function_property
 
 
-@pytest.mark.skipif(
-    not hasattr(Regress, "AnnotationObject"), reason="no Regress.AnnotationObject"
-)
 def test_set_function_property():
     obj = Regress.AnnotationObject()
 

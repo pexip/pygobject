@@ -49,9 +49,17 @@ GQuark pygobject_custom_key;
 GQuark pygobject_class_key;
 GQuark pygobject_class_init_key;
 GQuark pygobject_wrapper_key;
-GQuark pygobject_has_updated_constructor_key;
+GQuark pygobject_has_dispose_method;
 GQuark pygobject_instance_data_key;
-GQuark pygobject_instance_dict_key;
+
+
+static inline PyGObjectData *
+pyg_object_peek_inst_data (GObject *obj)
+{
+    if (!obj) return NULL;
+    return ((PyGObjectData *)g_object_get_qdata (obj,
+                                                 pygobject_instance_data_key));
+}
 
 static GClosure *
 gclosure_from_pyfunc (PyGObject *object, PyObject *func)
@@ -92,6 +100,7 @@ pygobject_data_free (PyGObjectData *data)
     if (state_saved) {
         state = PyGILState_Ensure ();
         Py_DECREF (data->type);
+        Py_CLEAR (data->inst_dict);
         /* We cannot use Py_BEGIN_ALLOW_THREADS here because this is inside
 	 * a branch. */
         Py_UNBLOCK_THREADS; /* Modifies _save */
@@ -123,14 +132,6 @@ pygobject_data_free (PyGObjectData *data)
 }
 
 static inline PyGObjectData *
-pygobject_data_new (void)
-{
-    PyGObjectData *data;
-    data = g_new0 (PyGObjectData, 1);
-    return data;
-}
-
-static inline PyGObjectData *
 pygobject_get_inst_data (PyGObject *self)
 {
     PyGObjectData *inst_data;
@@ -138,7 +139,7 @@ pygobject_get_inst_data (PyGObject *self)
     if (G_UNLIKELY (!self->obj)) return NULL;
     inst_data = g_object_get_qdata (self->obj, pygobject_instance_data_key);
     if (inst_data == NULL) {
-        inst_data = pygobject_data_new ();
+        inst_data = g_new0 (PyGObjectData, 1);
 
         inst_data->type = Py_TYPE (self);
         Py_INCREF ((PyObject *)inst_data->type);
@@ -264,6 +265,7 @@ void
 pygobject_register_wrapper (PyObject *self)
 {
     PyGObject *gself;
+    PyGObjectData *inst_data;
 
     g_return_if_fail (self != NULL);
     g_return_if_fail (PyObject_TypeCheck (self, &PyGObject_Type));
@@ -271,8 +273,34 @@ pygobject_register_wrapper (PyObject *self)
     gself = (PyGObject *)self;
 
     g_assert (gself->obj->ref_count >= 1);
+
+    /* this forces inst_data->type to be updated, which could prove
+     * important if a new wrapper has to be created and it is of a
+     * unregistered type */
+    inst_data = pygobject_get_inst_data (gself);
+    g_assert (inst_data != NULL);
+
+    if (inst_data->inst_dict == NULL) {
+        PyObject *inst_dict = PyObject_GenericGetDict (self, NULL);
+#ifdef PYPY_VERSION
+        inst_data->inst_dict = PyDict_Copy (inst_dict);
+        Py_DECREF (inst_dict);
+        PyObject_GenericSetDict (self, inst_data->inst_dict, NULL);
+#else
+        inst_data->inst_dict = inst_dict;
+#endif
+    } else {
+        PyObject_GenericSetDict (self, inst_data->inst_dict, NULL);
+    }
+
     /* save wrapper pointer so we can access it later */
     g_object_set_qdata_full (gself->obj, pygobject_wrapper_key, gself, NULL);
+
+    /* Add a marker so we know if we should create a new object to call `do_dispose` on.
+     */
+    g_object_set_qdata (
+        gself->obj, pygobject_has_dispose_method,
+        GINT_TO_POINTER (PyObject_HasAttrString (self, "do_dispose")));
 }
 
 static PyObject *
@@ -577,15 +605,7 @@ pygobject_new_full (GObject *obj, gboolean steal, gpointer g_class)
         self = PyObject_GC_New (PyGObject, tp);
         if (self == NULL) return NULL;
 
-        self->inst_dict =
-            Py_XNewRef (g_object_get_qdata (obj, pygobject_instance_dict_key));
-
-#ifdef PYPY_VERSION
-        /* For PyPy objects, we set a custom dict we can keep around after the object dies */
-        if (self->inst_dict == NULL) self->inst_dict = PyDict_New ();
-        PyObject_GenericSetDict ((PyObject *)self, self->inst_dict, NULL);
-#endif
-
+        self->inst_dict = NULL;
         self->weakreflist = NULL;
         self->private_flags.flags = 0;
         self->obj = obj;
@@ -774,10 +794,6 @@ pygobject_dealloc (PyGObject *self)
 
     if (self->weakreflist != NULL) PyObject_ClearWeakRefs ((PyObject *)self);
 
-    /* this forces inst_data->type to be updated, which could prove
-       * important if a new wrapper has to be created and it is of a
-       * unregistered type */
-    pygobject_get_inst_data (self);
     pygobject_clear (self);
     /* the following causes problems with subclassed types */
     /* Py_TYPE(self)->tp_free((PyObject *)self); */
@@ -840,22 +856,25 @@ pygobject_repr (PyGObject *self)
     return repr;
 }
 
-
 static int
 pygobject_traverse (PyGObject *self, visitproc visit, void *arg)
 {
     int ret = 0;
-    GSList *tmp;
-    PyGObjectData *data = pygobject_get_inst_data (self);
+    PyGObjectData *data = pyg_object_peek_inst_data (self->obj);
 
-    if (self->inst_dict) ret = visit (self->inst_dict, arg);
-    if (ret != 0) return ret;
+    if (self->inst_dict) {
+        ret = visit (self->inst_dict, arg);
+        if (ret != 0) return ret;
+    }
 
     /* Only let the GC track the closures when tp_clear() would free them.
      * https://bugzilla.gnome.org/show_bug.cgi?id=731501
      */
     if (data && self->obj->ref_count == 1) {
-        for (tmp = data->closures; tmp != NULL; tmp = tmp->next) {
+        if (data->inst_dict) ret = visit (data->inst_dict, arg);
+        if (ret != 0) return ret;
+
+        for (GSList *tmp = data->closures; tmp != NULL; tmp = tmp->next) {
             PyGClosure *closure = tmp->data;
 
             if (closure->callback) ret = visit (closure->callback, arg);
@@ -871,35 +890,14 @@ pygobject_traverse (PyGObject *self, visitproc visit, void *arg)
     return ret;
 }
 
-static void
-pygobject_inst_dict_clear (PyObject *inst_dict)
-{
-    PyGILState_STATE state = PyGILState_Ensure ();
-
-    Py_XDECREF (inst_dict);
-    PyGILState_Release (state);
-}
-
 static int
 pygobject_clear (PyGObject *self)
 {
     if (self->obj) {
         g_object_set_qdata_full (self->obj, pygobject_wrapper_key, NULL, NULL);
-
-        /* Only store the instance dict if we know the gobject will outlive this wrapper. */
-        if (self->inst_dict != NULL && PyDict_Size (self->inst_dict) > 0) {
-            g_object_set_qdata_full (
-                self->obj, pygobject_instance_dict_key,
-                Py_NewRef (self->inst_dict),
-                (GDestroyNotify)pygobject_inst_dict_clear);
-        } else {
-            g_object_set_qdata_full (self->obj, pygobject_instance_dict_key,
-                                     NULL, NULL);
-        }
         Py_BEGIN_ALLOW_THREADS;
-        g_object_unref (self->obj);
+        g_clear_pointer (&self->obj, g_object_unref);
         Py_END_ALLOW_THREADS;
-        self->obj = NULL;
     }
     Py_CLEAR (self->inst_dict);
     return 0;
@@ -912,10 +910,10 @@ pygobject_free (PyObject *op)
 }
 
 static gboolean
-pygobject_prepare_construct_properties (GObjectClass *class, PyObject *kwargs,
-                                        guint *n_properties,
-                                        const char **names[],
-                                        const GValue **values)
+pygobject_prepare_construct_properties (
+    GObjectClass *class, PyObject *kwargs, guint *n_properties,
+    const char **names[], const GValue **values,
+    const PyGIArgumentFromPyCleanupData **cleanup_data)
 {
     *n_properties = 0;
     *names = NULL;
@@ -930,9 +928,12 @@ pygobject_prepare_construct_properties (GObjectClass *class, PyObject *kwargs,
         len = PyDict_Size (kwargs);
         *names = g_new (const char *, len);
         *values = g_new0 (GValue, len);
+        *cleanup_data = g_new0 (PyGIArgumentFromPyCleanupData, len);
         while (PyDict_Next (kwargs, &pos, &key, &value)) {
             GParamSpec *pspec;
             GValue *gvalue = &(*values)[*n_properties];
+            PyGIArgumentFromPyCleanupData *arg_cleanup_data =
+                &(*cleanup_data)[*n_properties];
 
             const gchar *key_str = PyUnicode_AsUTF8 (key);
 
@@ -944,7 +945,9 @@ pygobject_prepare_construct_properties (GObjectClass *class, PyObject *kwargs,
                 return FALSE;
             }
             g_value_init (gvalue, G_PARAM_SPEC_VALUE_TYPE (pspec));
-            if (pygi_set_gvalue_for_pspec (pspec, gvalue, value) < 0) {
+            if (pygi_set_gvalue_for_pspec (gvalue, pspec, value,
+                                           arg_cleanup_data)
+                < 0) {
                 if (!PyErr_Occurred ())
                     PyErr_Format (
                         PyExc_TypeError,
@@ -969,11 +972,9 @@ pygobject_init (PyGObject *self, PyObject *args, PyObject *kwargs)
     GType object_type;
     guint n_properties = 0, i;
     const GValue *values = NULL;
+    const PyGIArgumentFromPyCleanupData *cleanup_data = NULL;
     const char **names = NULL;
     GObjectClass *class;
-#ifdef PYPY_VERSION
-    PyObject *pypy_dict;
-#endif
 
     /* Only do GObject creation and property setting if the GObject hasn't
      * already been created. The case where self->obj already exists can occur
@@ -987,14 +988,6 @@ pygobject_init (PyGObject *self, PyObject *args, PyObject *kwargs)
     if (self->obj != NULL) return 0;
 
     if (!PyArg_ParseTuple (args, ":GObject.__init__", NULL)) return -1;
-
-#ifdef PYPY_VERSION
-    /* For PyPy objects, we set a custom dict we can keep around after the object dies */
-    pypy_dict = PyObject_GenericGetDict ((PyObject *)self, NULL);
-    self->inst_dict = PyDict_Copy (pypy_dict);
-    Py_DECREF (pypy_dict);
-    PyObject_GenericSetDict ((PyObject *)self, self->inst_dict, NULL);
-#endif
 
     object_type = pyg_type_from_object ((PyObject *)self);
     if (!object_type) return -1;
@@ -1013,8 +1006,8 @@ pygobject_init (PyGObject *self, PyObject *args, PyObject *kwargs)
         return -1;
     }
 
-    if (!pygobject_prepare_construct_properties (class, kwargs, &n_properties,
-                                                 &names, &values))
+    if (!pygobject_prepare_construct_properties (
+            class, kwargs, &n_properties, &names, &values, &cleanup_data))
         goto cleanup;
 
     if (pygobject_constructv (self, n_properties, names, values))
@@ -1022,13 +1015,24 @@ pygobject_init (PyGObject *self, PyObject *args, PyObject *kwargs)
 
 cleanup:
     for (i = 0; i < n_properties; i++) {
+        pygi_argument_from_py_cleanup (&cleanup_data[i]);
         g_free (names[i]);
         g_value_unset (&values[i]);
     }
     g_free (names);
     g_free (values);
+    g_free (cleanup_data);
 
     g_type_class_unref (class);
+
+    /* Call `do_constructed`, to simulate GObject's `constructed` vfunc. */
+    if (!PyErr_Occurred ()
+        && PyObject_HasAttrString ((PyObject *)self, "do_constructed")) {
+        PyObject *result =
+            PyObject_CallMethod ((PyObject *)self, "do_constructed", NULL);
+        if (result == NULL) return -1;
+        Py_DECREF (result);
+    }
 
     return (self->obj) ? 0 : -1;
 }
@@ -1113,9 +1117,9 @@ pygobject_set_property_full (PyGObject *self, PyObject *args, gboolean async)
     }
 
     if (async)
-      pygi_set_property_value_async (self, pspec, pvalue);
+        pygi_set_property_value_async (self, pspec, pvalue);
     else
-      pygi_set_property_value (self, pspec, pvalue);
+        pygi_set_property_value (self, pspec, pvalue);
     if (PyErr_Occurred ()) return NULL;
 
     Py_RETURN_NONE;
@@ -1124,13 +1128,13 @@ pygobject_set_property_full (PyGObject *self, PyObject *args, gboolean async)
 static PyObject *
 pygobject_set_property (PyGObject *self, PyObject *args)
 {
-  return pygobject_set_property_full (self, args, FALSE);
+    return pygobject_set_property_full (self, args, FALSE);
 }
 
 static PyObject *
 pygobject_set_property_async (PyGObject *self, PyObject *args)
 {
-  return pygobject_set_property_full (self, args, TRUE);
+    return pygobject_set_property_full (self, args, TRUE);
 }
 
 static PyObject *
@@ -1210,9 +1214,9 @@ pygbinding_marshal (GClosure *closure, GValue *return_value,
     /* construct Python tuple for the parameter values */
     params = PyTuple_New (2);
     PyTuple_SetItem (params, 0,
-                     pyg_value_as_pyobject (&param_values[0], FALSE));
+                     pyg_value_to_pyobject (&param_values[0], FALSE));
     PyTuple_SetItem (params, 1,
-                     pyg_value_as_pyobject (&param_values[1], FALSE));
+                     pyg_value_to_pyobject (&param_values[1], FALSE));
 
     /* params passed to function may have extra arguments */
     if (pc->extra_args) {
@@ -1629,7 +1633,7 @@ pygobject_emit (PyGObject *self, PyObject *args)
                 was_floating = g_object_is_floating (obj);
             }
         }
-        py_ret = pyg_value_as_pyobject (&ret, TRUE);
+        py_ret = pyg_value_to_pyobject (&ret, TRUE);
         if (!was_floating) g_value_unset (&ret);
     } else {
         py_ret = Py_NewRef (Py_None);
@@ -1714,7 +1718,7 @@ pygobject_chain_from_overridden (PyGObject *self, PyObject *args)
     for (i = 0; i < query.n_params + 1; i++) g_value_unset (&params[i]);
     g_free (params);
     if (query.return_type != G_TYPE_NONE) {
-        py_ret = pyg_value_as_pyobject (&ret, TRUE);
+        py_ret = pyg_value_to_pyobject (&ret, TRUE);
         g_value_unset (&ret);
     } else {
         py_ret = Py_NewRef (Py_None);
@@ -1742,6 +1746,11 @@ pygobject_weak_ref (PyGObject *self, PyObject *args)
     return retval;
 }
 
+static PyObject *
+pygobject_do_constructed (PyObject *self)
+{
+    Py_RETURN_NONE;
+}
 
 static PyObject *
 pygobject_do_dispose (PyObject *self)
@@ -1864,7 +1873,8 @@ static PyMethodDef pygobject_methods[] = {
     { "get_property", (PyCFunction)pygobject_get_property, METH_VARARGS },
     { "get_properties", (PyCFunction)pygobject_get_properties, METH_VARARGS },
     { "set_property", (PyCFunction)pygobject_set_property, METH_VARARGS },
-    { "set_property_async", (PyCFunction)pygobject_set_property_async, METH_VARARGS },
+    { "set_property_async", (PyCFunction)pygobject_set_property_async,
+      METH_VARARGS },
     { "set_properties", (PyCFunction)pygobject_set_properties,
       METH_VARARGS | METH_KEYWORDS },
     { "bind_property", (PyCFunction)pygobject_bind_property,
@@ -1883,6 +1893,7 @@ static PyMethodDef pygobject_methods[] = {
     { "emit", (PyCFunction)pygobject_emit, METH_VARARGS },
     { "chain", (PyCFunction)pygobject_chain_from_overridden, METH_VARARGS },
     { "weak_ref", (PyCFunction)pygobject_weak_ref, METH_VARARGS },
+    { "do_constructed", (PyCFunction)pygobject_do_constructed, METH_NOARGS },
     { "do_dispose", (PyCFunction)pygobject_do_dispose, METH_NOARGS },
     { "__copy__", (PyCFunction)pygobject_copy, METH_NOARGS },
     { "__deepcopy__", (PyCFunction)pygobject_deepcopy, METH_VARARGS },
@@ -2088,12 +2099,10 @@ pyg_object_register_types (PyObject *d)
     pygobject_class_init_key =
         g_quark_from_static_string ("PyGObject::class-init");
     pygobject_wrapper_key = g_quark_from_static_string ("PyGObject::wrapper");
-    pygobject_has_updated_constructor_key =
-        g_quark_from_static_string ("PyGObject::has-updated-constructor");
+    pygobject_has_dispose_method =
+        g_quark_from_static_string ("PyGObject::has-dispose-method");
     pygobject_instance_data_key =
         g_quark_from_static_string ("PyGObject::instance-data");
-    pygobject_instance_dict_key =
-        g_quark_from_static_string ("PyGObject::instance-dict");
 
     /* GObject */
     if (!PY_TYPE_OBJECT)
@@ -2152,6 +2161,7 @@ pyg_object_new (PyGObject *self, PyObject *args, PyObject *kwargs)
     GObjectClass *class;
     guint n_properties = 0, i;
     const GValue *values = NULL;
+    const PyGIArgumentFromPyCleanupData *cleanup_data = NULL;
     const char **names = NULL;
 
     if (!PyArg_ParseTuple (args, "O:gobject.new", &pytype)) {
@@ -2174,17 +2184,19 @@ pyg_object_new (PyGObject *self, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-    if (pygobject_prepare_construct_properties (class, kwargs, &n_properties,
-                                                &names, &values)) {
+    if (pygobject_prepare_construct_properties (
+            class, kwargs, &n_properties, &names, &values, &cleanup_data)) {
         obj = g_object_new_with_properties (type, n_properties, names, values);
     }
 
     for (i = 0; i < n_properties; i++) {
+        pygi_argument_from_py_cleanup (&cleanup_data[i]);
         g_free (names[i]);
         g_value_unset (&values[i]);
     }
     g_free (names);
     g_free (values);
+    g_free (cleanup_data);
 
     g_type_class_unref (class);
 
